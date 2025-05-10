@@ -122,15 +122,15 @@ class Enemy(py.sprite.Sprite):
     def destroy(self):
         if self.death_time == 0:  # Chỉ phá hủy 1 lần
             self.death_time = py.time.get_ticks()
-            self.player.update_exp(20) #22/04/2025
+            self.player.update_exp(20)
 
             surf = py.mask.from_surface(self.frames[0]).to_surface()
             surf.set_colorkey('black')
             self.image = surf
             self.hitbox_rect = py.Rect(0, 0, 0, 0)
             self.collision_sprites.remove(self)
-            if not self.sound_played: # Kiểm tra biến cờ
-                self.player.game.impact_sound.play() # Phát âm thanh
+            if not self.sound_played:
+                self.player.game.impact_sound.play()
                 self.sound_played = True
 
     def death_timer(self):
@@ -175,7 +175,7 @@ class Skill_2(py.sprite.Sprite):
     def __init__(self, pos, player, groups):
         super().__init__(groups)
         self.player = player
-        self.image = py.Surface((0, 0), py.SRCALPHA)  # Create an empty surface
+        self.image = py.Surface((0, 0), py.SRCALPHA)
         self.rect = self.image.get_rect(center=pos)
         # self.heal_amount = 200
         self.heal()

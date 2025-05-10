@@ -15,7 +15,7 @@ class Game:
         #Setup
         py.init()
         self.display_surface = py.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-        py.display.set_caption("Free Fire Fake")
+        py.display.set_caption("League Of Legends Fake")
         self.clock = py.time.Clock()
         self.running = True
         
@@ -31,15 +31,10 @@ class Game:
         self.shoot_time = 0
         self.bow_cooldown = 1000
 
-        #skill timer
-        self.can_skill = True
-        self.skill_time = 0
-        self.skill_cooldown = 500
-
         #enemy timer
         self.enemy_create = 1500
         self.enemy_event = py.event.custom_type()
-        py.time.set_timer(self.enemy_event, self.enemy_create)
+        # py.time.set_timer(self.enemy_event, self.enemy_create)
         self.spam_positions = []
         self.damaged_enemies = {}
 
@@ -50,7 +45,7 @@ class Game:
         self.impact_sound.set_volume(0.3)
         self.music = py.mixer.Sound(join('audio', 'music.wav'))
         self.music.set_volume(0.3)
-        self.music.play(loops=-1)
+        # self.music.play(loops=-1)
         #  Lưu trữ âm lượng hiện tại  
         self.music_volume = self.music.get_volume() # Lấy âm lượng ban đầu
         self.sfx_volume = self.sound_shoot.get_volume()  
@@ -59,17 +54,19 @@ class Game:
         self.font = py.font.Font(None, 45)
         self.title_font = py.font.Font(None, 55) 
         self.label_font = py.font.Font(None, 40)
+        self.home_button_font = py.font.Font(None, 40) 
 
         # notification
         self.notification_font = py.font.Font(None, 22)
         self.notification_text = None
         self.notification_start_time = 0
         self.notification_duration = 1500
+        self.notification_float_in_duration = 300
 
         # Tạo các dòng chữ
         self.menu_options = ["Continue", "Setting", "Home"]
         self.menu_rects = []
-        self.create_pause_menu()
+        self.pause_start_time = 0
 
         # Keybindings
         self.keybindings = {
@@ -77,7 +74,7 @@ class Game:
             'skill_2': py.K_e,
             'skill_3': py.K_r
         }
-        self.load_keybindings() # Tải keybindings đã lưu (nếu có)
+        self.load_keybindings()
         self.rebinding_skill = None # None, 'skill_1', 'skill_2', 'skill_3'
 
         # Thời gian cooldown cho từng skill
@@ -86,6 +83,9 @@ class Game:
             'skill_2': 8000,
             'skill_3': 12000
         }
+        self.paused_skill_display_cooldowns = {}
+        self.blur_overlay = py.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), py.SRCALPHA)
+        self.blur_overlay.fill((128, 128, 128, 150))
         # Thời điểm cuối cùng mỗi skill được sử dụng
         self.skill_last_used = {
             'skill_1': 0,
@@ -95,11 +95,13 @@ class Game:
 
         #setup
         self.load_images()
-        self.setup()
+        # self.setup()
 
-        #pause
-        self.menu_state = 'none'
-        self.enemy_timer_active = True
+        # Bắt đầu với trạng thái 'home'
+        self.menu_state = 'home'
+        self.enemy_timer_active = False
+        self.previous_menu_state = 'home'
+        self.intro_back_button_rect = None
 
         # Game Over
         self.game_over = False
@@ -110,8 +112,14 @@ class Game:
         self.load_high_score()
         self.game_over_options = ["Replay", "Exit", "Home"]
         self.game_over_rects = []
-        self.create_gameover_menu()
-        self.survival_time = 0      
+        self.survival_time = 0
+
+        self.home_buttons = []
+        self.create_home_menu()
+        # Animation cho màn hình Home
+        self.home_anim_start_time = 0
+        self.home_anim_duration = 500 
+        self.home_anim_delay = 150 # Thời gian trễ giữa các phần tử
 
     def load_images(self):
         self.bullet_surf = py.image.load(join('images', 'weapon', 'arrow.png')).convert_alpha()    
@@ -132,8 +140,8 @@ class Game:
                 self.enemy_frames[folder] = []
                 for file_name in sorted(file_names, key=lambda name: int(name.split('.')[0])):
                     full_path = join(folder_path, file_name)
-                    suft = py.image.load(full_path).convert_alpha()
-                    self.enemy_frames[folder].append(suft)
+                    surf = py.image.load(full_path).convert_alpha()
+                    self.enemy_frames[folder].append(surf)
         #pause
         self.btnPause_surf = py.image.load(join('images', 'setting', 'pause.png')).convert_alpha()
         self.btnPause_rect = self.btnPause_surf.get_rect(topleft=(5, 5))
@@ -179,17 +187,18 @@ class Game:
         self.tblFinish_surf = py.image.load(join('images', 'setting', 'tbl_finish.png')).convert_alpha()
         self.tblFinish_rect = self.tblFinish_surf.get_rect(center=(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2))
         #button
-        self.btnBig_surf = py.image.load(join('images', 'setting', 'S_button.png')).convert_alpha()
-        self.btnSmall_surf = py.image.load(join('images', 'setting', 'button_small.png')).convert_alpha()
+        self.btnBig_surf = py.image.load(join('images', 'setting', 'L_button.png')).convert_alpha()
+        self.btnSmall_surf = py.image.load(join('images', 'setting', 'S_button.png')).convert_alpha()
+        self.btnXLarge_surf = py.image.load(join('images', 'setting', 'XL_button.png')).convert_alpha()
+
         #skill - Chưa dùng đến
         self.skill1_setting = py.image.load(join('images', 'infobar', 'skill1.jpeg')).convert_alpha()
         self.skill2_setting = py.image.load(join('images', 'infobar', 'skill2.jpeg')).convert_alpha()
         self.skill3_setting = py.image.load(join('images', 'infobar', 'skill3.jpeg')).convert_alpha()
         #info bar
         self.info_bar_surf = py.image.load(join('images', 'infobar', 'info_bar.png')).convert_alpha()
-        self.btnLevelup_surf = py.image.load(join('images', 'infobar', 'button_levelup.png')).convert_alpha()
-        #level up
-        self.levelup_surf = py.image.load(join('images', 'infobar', 'button_levelup.png')).convert_alpha()
+        #notify
+        self.tblNotify_surf = py.image.load(join('images', 'setting', 'notify.png')).convert_alpha()
 
     def save_keybindings(self):
         """Lưu keybindings hiện tại vào file JSON."""
@@ -299,6 +308,9 @@ class Game:
             return 0
 
     def input(self):
+        # Chỉ xử lý input game nếu player và bow tồn tại (tức là game đã start)
+        if not hasattr(self, 'player') or not hasattr(self, 'bow') or self.player.is_dead:
+            return
         keys = py.key.get_pressed()
 
         if self.bow and py.mouse.get_pressed()[0] and self.can_shoot:  # Kiểm tra đã vẽ cung tên chưa trước khi bắn
@@ -363,78 +375,75 @@ class Game:
     def bow_timer(self):
         if not self.can_shoot:
             current_time = py.time.get_ticks()
-            if current_time - self.shoot_time >= self.bow_cooldown:
-                self.can_shoot = True
-
-    def skill_timer(self):
-        if not self.can_skill:
-            current_time = py.time.get_ticks()
-            if current_time - self.skill_time >= self.skill_cooldown:
-                self.can_skill = True      
+            # Đảm bảo player tồn tại trước khi truy cập bow_cooldown
+            bow_cd = self.bow_cooldown if not hasattr(self, 'player') else self.player.game.bow_cooldown
+            if current_time - self.shoot_time >= bow_cd:
+                self.can_shoot = True     
      
     def setup(self):
-        map = load_pygame(join('data', 'maps', 'world.tmx'))
-        for x, y, image in map.get_layer_by_name('Ground').tiles():
-            Sprite((x * TILE_SIZE, y * TILE_SIZE), image, self.all_sprites)
-        
-        for obj in map.get_layer_by_name('Objects'):
-            CollisionSprite((obj.x, obj.y), obj.image, (self.all_sprites, self.collision_sprites)) 
-        
-        for obj in map.get_layer_by_name('Collisions'):
-            CollisionSprite((obj.x, obj.y), py.Surface((obj.width, obj.height)), self.collision_sprites) 
+        # Xóa sprite cũ nếu có
+        self.all_sprites.empty()
+        self.collision_sprites.empty()
+        self.bullet_sprites.empty()
+        self.skill_sprites.empty()
+        self.enemy_sprites.empty()
+        self.spam_positions.clear()
+        self.damaged_enemies.clear()
 
-        for obj in map.get_layer_by_name('Entities'):
+        map_data = load_pygame(join('data', 'maps', 'world.tmx'))
+
+        # Load Ground
+        for x, y, image in map_data.get_layer_by_name('Ground').tiles():
+            Sprite((x * TILE_SIZE, y * TILE_SIZE), image, self.all_sprites)
+
+        # Load Objects (có va chạm vật lý)
+        for obj in map_data.get_layer_by_name('Objects'):
+            CollisionSprite((obj.x, obj.y), obj.image, (self.all_sprites, self.collision_sprites))
+
+        # Load Collisions (vùng vô hình)
+        for obj in map_data.get_layer_by_name('Collisions'):
+            CollisionSprite((obj.x, obj.y), py.Surface((obj.width, obj.height)), self.collision_sprites)
+
+        # Load Entities (Player và Enemy Spawns)
+        player_pos = (WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2) # Vị trí mặc định nếu không tìm thấy
+        for obj in map_data.get_layer_by_name('Entities'):
             if obj.name == 'Player':
-                # Tạo self.bow trước khi tạo self.player
-                self.bow = Bow(None, self.all_sprites) # Truyền None vào vì player chưa được tạo
-                self.player = Player((obj.x, obj.y), self.all_sprites, self.collision_sprites, self.bow, self)
-                self.bow.set_player(self.player) #set player cho bow
-            else: #Enemy
+                player_pos = (obj.x, obj.y)
+            else: # Enemy spawn point
                 self.spam_positions.append((obj.x, obj.y))
-        self.start_time = py.time.get_ticks()  #Thời gian bắt đầu game
-        self.reset_game()
-    
-    def reset_game(self):
+
+        # Tạo Player và Bow (SAU KHI đã có collision_sprites)
+        self.bow = Bow(None, self.all_sprites) # Tạo bow trước
+        self.player = Player(player_pos, self.all_sprites, self.collision_sprites, self.bow, self)
+        self.bow.set_player(self.player) # Gán player cho bow
+
+        # Reset các biến trạng thái game
         self.start_time = py.time.get_ticks()
         self.enemies_killed = 0
         self.game_over = False
         self.new_record = False
         self.survival_time = 0
-        self.player.health = self.player.health_bar.max_health
-        self.player.is_dead = False
-        self.player.bow_killed = False
-        self.player.death_time = 0
-        self.player.health_bar.delayed_health = self.player.health
-        self.player.health_bar.delayed_health_width = self.player.health_bar.current_health_width
-        # Xóa tất cả các đối tượng trong game
-        for sprite in self.all_sprites:
-            sprite.kill()
-        for sprite in self.enemy_sprites:
-            sprite.kill()
-        for sprite in self.bullet_sprites:
-            sprite.kill()
-        for sprite in self.skill_sprites:
-            sprite.kill()
-        # Tạo lại các đối tượng cần thiết
-        map = load_pygame(join('data', 'maps', 'world.tmx'))
-        for x, y, image in map.get_layer_by_name('Ground').tiles():
-            Sprite((x * TILE_SIZE, y * TILE_SIZE), image, self.all_sprites)
-        
-        for obj in map.get_layer_by_name('Objects'):
-            CollisionSprite((obj.x, obj.y), obj.image, (self.all_sprites, self.collision_sprites)) 
-        
-        for obj in map.get_layer_by_name('Collisions'):
-            CollisionSprite((obj.x, obj.y), py.Surface((obj.width, obj.height)), self.collision_sprites) 
+        # Reset skill cooldowns
+        current_time = py.time.get_ticks()
+        for skill_id in self.skill_last_used:
+            self.skill_last_used[skill_id] = current_time # Reset thời gian sử dụng
 
-        for obj in map.get_layer_by_name('Entities'):
-            if obj.name == 'Player':
-                # Tạo self.bow trước khi tạo self.player
-                self.bow = Bow(None, self.all_sprites) # Truyền None vào vì player chưa được tạo
-                self.player = Player((obj.x, obj.y), self.all_sprites, self.collision_sprites, self.bow, self)
-                self.bow.set_player(self.player) #set player cho bow
-            else: #Enemy
-                self.spam_positions.append((obj.x, obj.y))
-        py.mixer.unpause()
+        # Khởi động lại timer enemy và nhạc
+        self.enemy_create = int(1500 * (0.95)**(self.player.level - 1)) # Tính lại enemy_create dựa trên level (nếu có reset giữa game)
+        py.time.set_timer(self.enemy_event, self.enemy_create)
+        self.enemy_timer_active = True
+        self.music.play(loops=-1)
+    
+    def reset_game(self):
+        if self.enemy_timer_active:
+            py.time.set_timer(self.enemy_event, 0)
+            self.enemy_timer_active = False
+        self.music.stop()
+
+        # Gọi setup để tạo lại mọi thứ
+        self.setup()
+        # Đặt lại trạng thái menu về 'none' để bắt đầu chơi
+        self.set_menu_state('none')
 
     def bullet_collision(self):
         if self.bullet_sprites and self.enemy_sprites:
@@ -492,49 +501,250 @@ class Game:
             else:
                  pass
 
+    def _calculate_float_in_animation(self, animation_start_time, current_time, animation_duration, target_y, start_y_offset=30, initial_alpha=0, final_alpha=255):
+        elapsed_time = current_time - animation_start_time
+        progress = 0.0
+        if animation_duration > 0:
+            progress = min(1.0, elapsed_time / animation_duration)
+        elif current_time >= animation_start_time: 
+            progress = 1.0
+
+        current_animated_y = target_y - start_y_offset * (1 - progress)
+        current_animated_alpha = initial_alpha + (final_alpha - initial_alpha) * progress
+        return current_animated_y, int(current_animated_alpha)
+
     def draw_notification(self):
         if self.notification_text:
             current_time = py.time.get_ticks()
-            if current_time < self.notification_start_time + self.notification_duration:
-                notification_surf = self.notification_font.render(self.notification_text, True, 'white')
+            elapsed_total_time = current_time - self.notification_start_time
 
-                info_bar_x = self.player.info_bar.x
-                info_bar_y = self.player.info_bar.y
-                info_bar_width = self.player.info_bar.health_frame_surf.get_width()
+            if elapsed_total_time < self.notification_duration:
+                if "Level Up" in self.notification_text:
+                    # Thông báo Level Up: float-in ở giữa màn hình
+                    notification_surf = self.notification_font.render(self.notification_text, True, '#181425')
+                    target_center_x = WINDOW_WIDTH / 2
+                    target_center_y = WINDOW_HEIGHT / 2 - 70
 
-                notification_rect = notification_surf.get_rect(midbottom=(info_bar_x + info_bar_width / 2 + 56, info_bar_y))
+                    animated_y, animated_alpha = self._calculate_float_in_animation(
+                        animation_start_time=self.notification_start_time,
+                        current_time=current_time,
+                        animation_duration=self.notification_float_in_duration,
+                        target_y=target_center_y,
+                        start_y_offset=-30,
+                        initial_alpha=0,
+                        final_alpha=255
+                    )
+                    
+                    notification_surf.set_alpha(animated_alpha)
+                    notification_rect = notification_surf.get_rect(center=(target_center_x, animated_y))
 
-                bg_rect = notification_rect.inflate(10, 5)
-                bg_surf = py.Surface(bg_rect.size, py.SRCALPHA)
-                bg_surf.fill((0, 0, 0, 150))
-                self.display_surface.blit(bg_surf, bg_rect)
 
-                self.display_surface.blit(notification_surf, notification_rect)
+                    self.display_surface.blit(notification_surf, notification_rect)
+                else:
+                    # Thông báo skill (cooldown/locked): không hiệu ứng
+                    notification_surf = self.notification_font.render(self.notification_text, True, '#181425')
+                    if hasattr(self, 'player') and hasattr(self.player, 'info_bar'):
+                        info_bar_x = self.player.info_bar.x
+                        info_bar_y = self.player.info_bar.y
+                        info_bar_width = self.player.info_bar.health_frame_surf.get_width()
+                        notification_rect = notification_surf.get_rect(midbottom=(info_bar_x + info_bar_width / 2 + 56, info_bar_y))
+                        self.display_surface.blit(notification_surf, notification_rect)
             else:
                 self.notification_text = None
 
     def set_menu_state(self, new_state):
-        # Chỉ thay đổi trạng thái nếu không phải game over
-        if not self.game_over:
-            old_state = self.menu_state
-            self.menu_state = new_state
+        old_state = self.menu_state
+        # Lưu trạng thái hiện tại trước khi thay đổi (trừ khi đang ở settings)
+        if self.menu_state != 'settings':
+            self.previous_menu_state = self.menu_state
 
-            # Xử lý pause/unpause game logic và âm thanh
-            is_paused_now = (new_state == 'paused' or new_state == 'settings')
-            was_paused_before = (old_state == 'paused' or old_state == 'settings')
+        self.menu_state = new_state
 
-            if is_paused_now and not was_paused_before: # Chuyển từ chạy sang pause/settings
-                if self.enemy_timer_active:
-                    py.time.set_timer(self.enemy_event, 0) # Dừng timer enemy
-                    self.enemy_timer_active = False
-                py.mixer.pause() # Tạm dừng tất cả âm thanh (bao gồm cả nhạc nền nếu đang chạy)
-            elif not is_paused_now and was_paused_before: # Chuyển từ pause/settings sang chạy
+        game_inactive_states = ['paused', 'settings', 'home', 'introduction']
+        is_paused_now = (new_state in game_inactive_states)
+        was_paused_before = (old_state in game_inactive_states)
+
+        current_ticks = py.time.get_ticks()
+
+        if is_paused_now and not was_paused_before: # Chuyển từ chạy ('none') sang pause/settings/home
+            # Phần xử lý logic pause
+            if self.enemy_timer_active:
+                py.time.set_timer(self.enemy_event, 0)
+                self.enemy_timer_active = False
+            py.mixer.pause()
+            self.pause_start_time = current_ticks # Ghi lại thời điểm bắt đầu pause
+
+            # Lưu trữ giá trị cooldown để hiển thị
+            self.paused_skill_display_cooldowns.clear() # Xóa giá trị cũ
+            if hasattr(self, 'player'):
+                for skill_id in self.skill_cooldowns: # Lặp qua các skill đã định nghĩa
+                    # Tính thời gian còn lại TẠI THỜI ĐIỂM PAUSE này
+                    remaining_seconds = self.get_skill_cooldown_remaining(skill_id)
+                    # Chỉ lưu nếu còn cooldown
+                    if remaining_seconds > 0:
+                        self.paused_skill_display_cooldowns[skill_id] = remaining_seconds
+
+        elif not is_paused_now and was_paused_before: # Chuyển từ pause/settings/home sang chạy ('none')
+            # Phần xử lý logic unpause (điều chỉnh skill_last_used)
+            if self.pause_start_time > 0: # Đảm bảo đã có thời điểm bắt đầu pause hợp lệ
+                paused_duration = current_ticks - self.pause_start_time
+                if hasattr(self, 'player'):
+                    for skill_id in self.skill_last_used:
+                        if self.skill_last_used[skill_id] < self.pause_start_time:
+                            self.skill_last_used[skill_id] += paused_duration
+                self.pause_start_time = 0 # Reset lại thời điểm bắt đầu pause
+
+            # Xóa giá trị cooldown hiển thị đã lưu
+            self.paused_skill_display_cooldowns.clear()
+
+            # Phần khởi động lại game
+            if hasattr(self, 'player'):
                 if not self.enemy_timer_active:
-                    py.time.set_timer(self.enemy_event, self.enemy_create) # Khởi động lại timer enemy
+                    self.enemy_create = int(1500 * (0.95)**(self.player.level - 1))
+                    py.time.set_timer(self.enemy_event, self.enemy_create)
                     self.enemy_timer_active = True
-                py.mixer.unpause() # Tiếp tục tất cả âm thanh
+                py.mixer.unpause()
+
+        if new_state == 'paused' and not self.menu_rects:
+            self.create_pause_menu()
+        elif new_state == 'home' and old_state != 'home': # Chỉ reset anim time khi thực sự chuyển đến home
+            self.home_anim_start_time = py.time.get_ticks()
+            self.create_pause_menu()
+        elif new_state == 'home' and not self.home_buttons:
+            self.create_home_menu()
+
+    def create_home_menu(self):
+        self.home_buttons.clear()
+        button_texts = ["Start Game", "Setting", "Introduction", "Exit"]
+        start_y = WINDOW_HEIGHT * 0.38
+
+        for i, text in enumerate(button_texts):
+            button_rect = self.btnXLarge_surf.get_rect(
+                center=(250, start_y + 100 * i)
+            )
+            action = text.lower().replace(" ", "_") # vd: "start_game", "setting", "introduction", "exit"
+            self.home_buttons.append({'text': text, 'rect': button_rect, 'action': action})
+
+    def draw_home_menu(self):
+        current_time = py.time.get_ticks()
+        self.display_surface.fill("black")
+        # Vẽ Tiêu đề với hiệu ứng float-in
+        title_target_center_x = 250
+        title_target_center_y = WINDOW_HEIGHT * 0.18
+        title_anim_y, title_alpha = self._calculate_float_in_animation(
+            animation_start_time=self.home_anim_start_time, # Tiêu đề bắt đầu ngay
+            current_time=current_time,
+            animation_duration=self.home_anim_duration,
+            target_y=title_target_center_y,
+            start_y_offset=-50, # Float từ dưới lên
+            initial_alpha=0,
+            final_alpha=255
+        )
+        title_surf = self.title_font.render("League Of Legends Fake", True, 'orange')
+        title_surf.set_alpha(title_alpha)
+        title_rect = title_surf.get_rect(center=(title_target_center_x, title_anim_y))
+        self.display_surface.blit(title_surf, title_rect)
+
+        # Vẽ các nút với hiệu ứng float-in và trễ
+        for i, button in enumerate(self.home_buttons):
+            button_anim_actual_start_time = self.home_anim_start_time + (i + 1) * self.home_anim_delay
+            
+            button_target_center_y = button['rect'].centery # Lấy Y mục tiêu từ rect đã tạo
+            button_target_center_x = button['rect'].centerx
+
+            btn_anim_y, btn_alpha = self._calculate_float_in_animation(
+                animation_start_time=button_anim_actual_start_time,
+                current_time=current_time,
+                animation_duration=self.home_anim_duration,
+                target_y=button_target_center_y,
+                start_y_offset=-50, # Float từ dưới lên
+                initial_alpha=0,
+                final_alpha=255
+            )
+
+            animated_button_rect = self.btnXLarge_surf.get_rect(center=(button_target_center_x, btn_anim_y))
+            temp_btn_bg_surf = self.btnXLarge_surf.copy()
+            temp_btn_bg_surf.set_alpha(btn_alpha)
+            self.display_surface.blit(temp_btn_bg_surf, animated_button_rect)
+
+            text_surf = self.home_button_font.render(button['text'], True, 'white')
+            text_surf.set_alpha(btn_alpha)
+            text_rect = text_surf.get_rect(center=animated_button_rect.center)
+            self.display_surface.blit(text_surf, text_rect)
+
+    def draw_introduction_screen(self):
+        if hasattr(self, 'tblSetting_surf') and hasattr(self, 'tblSetting_rect'):
+            self.display_surface.blit(self.tblSetting_surf, self.tblSetting_rect)
+        else:
+            self.display_surface.fill((20, 20, 40))
+            print("Warning: tblSetting_surf hoặc tblSetting_rect không khả dụng cho màn hình Introduction.")
+
+        self.intro_back_button_rect = self.btnBack_surf.get_rect(topleft=(5, 5))
+        self.display_surface.blit(self.btnBack_surf, self.intro_back_button_rect)
+
+        # Tiêu đề
+        title_surf = self.title_font.render("Game Introduction", True, 'orange')
+        title_rect = title_surf.get_rect(center=(self.tblSetting_rect.centerx, self.tblSetting_rect.top + 180))
+        self.display_surface.blit(title_surf, title_rect)
+
+        # Nội dung
+        line_spacing = 30
+        current_y = title_rect.bottom + 20
+        content_font = py.font.Font(None, 30)
+        label_font = py.font.Font(None, 35)
+        text_color = 'white'
+        highlight_color = 'lightgreen'
+        section_color = 'lightblue'
+        content_area_left = self.tblSetting_rect.left + 250 # Lề trái cho nội dung bên trong bảng
+
+        # Mục tiêu game
+        obj_title_surf = label_font.render("Mục tiêu:", True, section_color)
+        obj_title_rect = obj_title_surf.get_rect(topleft=(content_area_left, current_y))
+        self.display_surface.blit(obj_title_surf, obj_title_rect)
+        current_y += line_spacing + 5
+
+        objective_lines = [
+            "- Sống sót càng lâu càng tốt.",
+            "- Tiêu diệt kẻ thù để nhận điểm kinh nghiệm (EXP) và lên cấp.",
+            "- Lên cấp giúp bạn mạnh hơn, mở khóa và cải thiện kỹ năng."
+        ]
+        for line in objective_lines:
+            line_surf = content_font.render(line, True, text_color)
+            line_rect = line_surf.get_rect(topleft=(content_area_left + 30, current_y))
+            self.display_surface.blit(line_surf, line_rect)
+            current_y += line_spacing
+
+        current_y += line_spacing # Khoảng cách giữa các mục
+
+        # Điều khiển
+        ctrl_title_surf = label_font.render("Điều khiển:", True, section_color)
+        ctrl_title_rect = ctrl_title_surf.get_rect(topleft=(content_area_left, current_y))
+        self.display_surface.blit(ctrl_title_surf, ctrl_title_rect)
+        current_y += line_spacing + 5
+
+        controls_info = [
+            ("Di chuyển:", "W, A, S, D hoặc các phím mũi tên"),
+            ("Bắn (tấn công thường):", "Chuột trái"),
+            (f"Skill 1 (Đa tiễn):", f"Phím {py.key.name(self.keybindings['skill_1']).upper()} (Mở khóa: Cấp 1)"),
+            (f"Skill 2 (Hồi máu):", f"Phím {py.key.name(self.keybindings['skill_2']).upper()} (Mở khóa: Cấp 2)"),
+            (f"Skill 3 (Thần tiễn):", f"Phím {py.key.name(self.keybindings['skill_3']).upper()} (Mở khóa: Cấp 4)"),
+            ("Tạm dừng/Mở Menu:", "ESC")
+        ]
+        # key_description_offset dùng để đặt vị trí bắt đầu của mô tả phím, cách lề của nhãn
+        key_description_offset = 300
+        for label, key_info in controls_info:
+            label_surf = content_font.render(label, True, highlight_color)
+            label_rect = label_surf.get_rect(topleft=(content_area_left + 30, current_y))
+            self.display_surface.blit(label_surf, label_rect)
+
+            key_surf = content_font.render(key_info, True, text_color)
+            # Đặt vị trí mô tả phím dựa trên vị trí của nhãn và offset
+            key_rect = key_surf.get_rect(topleft=(label_rect.left + key_description_offset, current_y))
+            self.display_surface.blit(key_surf, key_rect)
+            current_y += line_spacing
 
     def create_pause_menu(self):
+        self.menu_rects.clear() # Xóa cũ
         y_offset = -100
         self.btnContinue_rect = None
         for option in self.menu_options:
@@ -702,6 +912,7 @@ class Game:
         return self.survival_time
 
     def create_gameover_menu(self):
+        self.game_over_rects.clear()
         x_offset = -200
         for option in self.game_over_options:
             text_surface = self.font.render(option, True, 'white')
@@ -710,6 +921,8 @@ class Game:
             x_offset += 190
 
     def draw_gameover_menu(self):
+        if not self.game_over_rects:
+            self.create_gameover_menu()
         self.display_surface.blit(self.tblFinish_surf, self.tblFinish_rect)
         # Game Over
         game_over_text = self.font.render("GAME OVER", True, 'white')
@@ -762,19 +975,25 @@ class Game:
             dt = self.clock.tick() / 1000
 
             current_ticks = py.time.get_ticks()
-            if self.player.is_dead and not self.game_over:
+            if hasattr(self, 'player') and self.player.is_dead and not self.game_over:
                 if current_ticks - self.player.death_time >= self.player.death_duration:
                     self.game_over = True
                     # Tính thời gian sống sót tại thời điểm chết
                     self.survival_time = (self.player.death_time - self.start_time) / 1000
                     self.check_new_record()
+                    # Dừng timer enemy khi game over
+                    if self.enemy_timer_active:
+                        py.time.set_timer(self.enemy_event, 0)
+                        self.enemy_timer_active = False
 
             for event in py.event.get():
                 if event.type == py.QUIT:
                     self.running = False
-                # Chỉ tạo enemy nếu game đang chạy
+                # Tạo enemy chỉ khi game đang chạy
                 if event.type == self.enemy_event and self.menu_state == 'none' and not self.game_over:
-                    Enemy(choice(self.spam_positions), choice(list(self.enemy_frames.values())), (self.all_sprites, self.enemy_sprites), self.player, self.collision_sprites)
+                    # Đảm bảo player và spam_positions đã được khởi tạo
+                    if hasattr(self, 'player') and self.spam_positions:
+                        Enemy(choice(self.spam_positions), choice(list(self.enemy_frames.values())), (self.all_sprites, self.enemy_sprites), self.player, self.collision_sprites)
 
                 if event.type == py.KEYDOWN:
                     # Xử lý nhấn phím KHI ĐANG CHỜ rebind  
@@ -809,29 +1028,28 @@ class Game:
                         elif self.menu_state == 'paused':
                             self.set_menu_state('none')
                         elif self.menu_state == 'settings':
-                            # Nếu đang rebind, ESC đã được xử lý ở trên để hủy rebind
-                            # Nếu không rebind, ESC sẽ quay lại menu pause
-                            if not self.rebinding_skill:
-                                self.set_menu_state('paused')
+                            if not self.rebinding_skill: # Nếu không rebind -> quay lại trạng thái trước đó
+                                self.set_menu_state(self.previous_menu_state) # Quay lại home hoặc paused
+                            else: # Nếu đang rebind -> hủy rebind
+                                self.rebinding_skill = None
 
-                if event.type == py.MOUSEBUTTONDOWN:
-                    if self.game_over:
-                        for index, (text_surface, text_rect) in enumerate(self.game_over_rects):
-                            button_rect = py.Rect(0, 0, 133, 56)
-                            button_rect.center = text_rect.center
-                            if button_rect.collidepoint(event.pos):
-                                option = self.game_over_options[index]
-                                if option == "Replay":
+                if event.type == py.MOUSEBUTTONUP:
+                    if self.menu_state == 'home':
+                        for button in self.home_buttons:
+                            if button['rect'].collidepoint(event.pos):
+                                action = button['action']
+                                if action == 'start_game':
                                     self.reset_game()
-                                    self.set_menu_state('none')
-                                elif option == "Exit":
+                                elif action == 'setting':
+                                    self.set_menu_state('settings')
+                                elif action == 'introduction':
+                                    self.set_menu_state('introduction')
+                                elif action == 'exit':
                                     self.running = False
-                                elif option == "Home":
-                                    print("Chức năng Home chưa được cài đặt")
                                 break
-                    elif self.menu_state == 'none':
-                        if self.btnPause_rect.collidepoint(event.pos):
-                            self.set_menu_state('paused')
+                    elif self.menu_state == 'introduction':
+                        if self.intro_back_button_rect and self.intro_back_button_rect.collidepoint(event.pos):
+                            self.set_menu_state('home')            
                     elif self.menu_state == 'paused':
                         for index, (text_surface, text_rect) in enumerate(self.menu_rects):
                             clickable_rect = py.Rect(0, 0, 176, 69)
@@ -843,20 +1061,23 @@ class Game:
                                 elif option == "Setting":
                                     self.set_menu_state('settings') 
                                 elif option == "Home":
-                                    print("Chức năng Home chưa được cài đặt")
+                                    self.set_menu_state('home')
                                 break
                     elif self.menu_state == 'settings':
                         # Click trong menu settings
                         if self.btnBack_rect.collidepoint(event.pos):
-                            self.set_menu_state('paused') # Quay lại menu pause
-                         # Xử lý click Music Volume Controls
+                            if self.rebinding_skill:
+                                self.rebinding_skill = None
+                                print("Đã hủy gán phím.")
+                            self.set_menu_state(self.previous_menu_state)
+                        # Xử lý click Music
                         elif self.btnMusicDecrease_rect.collidepoint(event.pos):
                             self.music_volume = max(0.0, self.music_volume - 0.1)
                             self.music.set_volume(self.music_volume)
                         elif self.btnMusicIncrease_rect.collidepoint(event.pos):
                             self.music_volume = min(1.0, self.music_volume + 0.1)
                             self.music.set_volume(self.music_volume)
-                        # Xử lý click SFX Volume Controls
+                        # Xử lý click SFX
                         elif self.btnSfxDecrease_rect.collidepoint(event.pos):
                             self.sfx_volume = max(0.0, self.sfx_volume - 0.1)
                             self.sound_shoot.set_volume(self.sfx_volume)
@@ -865,7 +1086,6 @@ class Game:
                             self.sfx_volume = min(1.0, self.sfx_volume + 0.1)
                             self.sound_shoot.set_volume(self.sfx_volume)
                             self.impact_sound.set_volume(self.sfx_volume)
-                        # Click nút đổi phím (chỉ khi không đang rebind skill khác)
                         elif not self.rebinding_skill:
                             if hasattr(self, 'skill1_key_rect') and self.skill1_key_rect.collidepoint(event.pos):
                                 self.rebinding_skill = 'skill_1'
@@ -876,32 +1096,63 @@ class Game:
                             elif hasattr(self, 'skill3_key_rect') and self.skill3_key_rect.collidepoint(event.pos):
                                 self.rebinding_skill = 'skill_3'
                                 print("Nhấn phím mới cho Skill 3")
+                    elif self.game_over:
+                        if not self.game_over_rects:
+                            self.create_gameover_menu()
 
-            if self.menu_state == 'none' and not self.game_over and not self.player.is_dead:
-                # Chỉ nhận input game khi không có menu nào hiển thị VÀ không đang rebind
-                if not self.rebinding_skill:
-                    self.input() 
-                self.survival_time += dt
-                self.bow_timer()
-                # self.skill_timer()
-                self.all_sprites.update(dt)
-                self.player_collision()
-                self.bullet_collision()
-                self.skill_collision()
-            elif self.player.is_dead and not self.game_over:
-                self.all_sprites.update(dt)
-            elif self.menu_state != 'none':
-                pass
+                        for index, (text_surface, text_rect) in enumerate(self.game_over_rects):
+                            button_rect = self.btnBig_surf.get_rect(center=text_rect.center)
+                            if button_rect.collidepoint(event.pos):
+                                option = self.game_over_options[index]
+                                if option == "Replay":
+                                    self.reset_game()
+                                elif option == "Exit":
+                                    self.running = False
+                                elif option == "Home":
+                                    self.set_menu_state('home')
+                                    self.game_over = False
+                                break  
+                    elif self.menu_state == 'none':
+                        if self.btnPause_rect.collidepoint(event.pos):
+                            self.set_menu_state('paused')               
+
+            if self.menu_state == 'none' and not self.game_over:
+                if hasattr(self, 'player') and not self.player.is_dead:
+                    if not self.rebinding_skill: # Không nhận input game khi đang rebind
+                        self.input()
+                    self.survival_time += dt
+                    self.bow_timer()
+                    self.all_sprites.update(dt)
+                    self.player_collision()
+                    self.bullet_collision()
+                    self.skill_collision()
+                elif hasattr(self, 'player') and self.player.is_dead:
+                    self.all_sprites.update(dt) # Chỉ update animation chết
 
             # Draw
             self.display_surface.fill("black")
-            if not self.game_over:
-                self.all_sprites.draw(self.player.rect.center)
-                # self.player.draw_health_bar(self.display_surface)
-                self.player.draw_info_bar(self.display_surface)
-                self.draw_notification()
-
-                if self.menu_state == 'none':
+            if self.menu_state == 'home':
+                self.draw_home_menu()
+            elif self.menu_state == 'introduction':
+                self.draw_introduction_screen()
+            elif self.menu_state == 'paused':
+                if hasattr(self, 'player'): self.all_sprites.draw(self.player.rect.center)
+                if hasattr(self, 'player'): self.player.draw_info_bar(self.display_surface)
+                self.display_surface.blit(self.blur_overlay, (0, 0))
+                self.draw_pause_menu()
+            elif self.menu_state == 'settings':
+                if self.previous_menu_state == 'paused':
+                    if hasattr(self, 'player'): self.all_sprites.draw(self.player.rect.center)
+                    if hasattr(self, 'player'): self.player.draw_info_bar(self.display_surface)
+                    self.display_surface.blit(self.blur_overlay, (0, 0))
+                self.draw_settings_menu()
+            elif self.game_over:
+                self.draw_gameover_menu()
+            elif self.menu_state == 'none':
+                if hasattr(self, 'player'):
+                    self.all_sprites.draw(self.player.rect.center)
+                    self.player.draw_info_bar(self.display_surface)
+                    self.draw_notification()
                     # Hiển thị thời gian sống sót
                     minutes = int(self.survival_time // 60)
                     seconds = int(self.survival_time % 60)
@@ -910,12 +1161,6 @@ class Game:
                     self.display_surface.blit(time_text, time_rect)
                     # Vẽ nút pause nhỏ
                     self.display_surface.blit(self.btnPause_surf, self.btnPause_rect)
-                elif self.menu_state == 'paused':
-                    self.draw_pause_menu()
-                elif self.menu_state == 'settings':
-                    self.draw_settings_menu()
-            else:
-                self.draw_gameover_menu()
 
             py.display.update()
 

@@ -111,6 +111,9 @@ class Player(py.sprite.Sprite):
     def level_up(self):
         if self.level < self.max_level:
             self.level += 1
+            if hasattr(self.game, 'notification_text'):
+                self.game.notification_text = "Level Up!"
+                self.game.notification_start_time = py.time.get_ticks()
             exp_overflow = self.current_exp - self.max_exp # Giữ lại exp thừa
             self.current_exp = max(0, exp_overflow) # Đặt exp về 0 hoặc exp thừa
             self.max_exp = int(100 * (1.2)**(self.level - 1))
@@ -187,11 +190,6 @@ class HealthBar:
         # self.current_exp = 0
         self.exp_width = 104
         self.exp_height = 4
-        # self.current_exp_width = 0
-        # self.exp_surf = py.Surface((self.current_exp_width, self.exp_height), py.SRCALPHA)
-        # self.exp_surf.fill('#1BD1FF')
-        # self.level = 1
-        # self.max_level = 11
         self.font = py.font.Font(None, 26)
         self.damage_cooldown = 1000
 
@@ -227,58 +225,6 @@ class HealthBar:
         self.delayed_health_surf = py.Surface((self.delayed_health_width, self.health_height), py.SRCALPHA)
         self.delayed_health_surf.fill('orange')
 
-    # def create_exp_surface(self):
-    #     self.exp_surf = py.Surface((self.current_exp_width, self.exp_height), py.SRCALPHA)
-    #     self.exp_surf.fill('#1BD1FF')
-
-    # def update_exp(self, exp_gain=0):
-    #     if self.level < self.max_level:
-    #         self.current_exp += exp_gain
-    #         if self.current_exp >= self.max_exp:
-    #             self.level_up()
-    #         self.current_exp_width = int(self.exp_width * (self.current_exp / self.max_exp))
-    #         self.create_exp_surface()
-
-    # def level_up(self):
-    #     if self.level < self.max_level:
-    #         self.level += 1
-    #         self.current_exp = 0
-    #         self.max_exp = int(100 * (1.2)**(self.level - 1))
-    #         self.update_game_difficulty()
-    #         self.update_max_health()
-
-    # def update_max_health(self):
-    #     health_ratio = self.player.health / self.max_health #tính tỉ lệ máu hiện tại
-    #     self.max_health = int(1000 * (1.1)**(self.level - 1))
-    #     self.player.health = int(self.max_health * health_ratio) #cập nhật lại máu theo tỉ lệ
-    #     self.delayed_health = self.player.health
-    
-    # def update_game_difficulty(self):
-        # self.game.enemy_create = int(1500 * (0.95)**(self.level - 1))
-        # self.game.bow_cooldown = int(1000 * (0.95)**(self.level - 1))
-        # py.time.set_timer(self.game.enemy_event, self.game.enemy_create)
-
-        # self.player.speed = int(300 * (1.05)**(self.level - 1))
-        # for enemy in self.game.enemy_sprites:
-        #     enemy.speed = int(250 * (1.06)**(self.level - 1))
-        # self.damage_cooldown = int(1000 * (0.95)**(self.level - 1))
-
-    # def draw(self, surface):
-        # surface.blit(self.health_frame_surf, (self.x, self.y))
-        # # Vẽ thanh máu cam
-        # delayed_health_rect = py.Rect(self.x + 38, self.y + 7, self.delayed_health_width, self.health_height)
-        # surface.blit(self.delayed_health_surf, delayed_health_rect)
-        # # Vẽ thanh máu đỏ
-        # health_rect = py.Rect(self.x + 38, self.y + 7, self.current_health_width, self.health_height)
-        # surface.blit(self.health_surf, health_rect)
-        # # Vẽ EXP Bar
-        # exp_rect = py.Rect(self.x + 38, self.y + 7 + self.health_height + 9, self.current_exp_width, self.exp_height)
-        # surface.blit(self.exp_surf, exp_rect)
-        # # Vẽ Level
-        # level_text = self.font.render(f"{self.level}", True, 'white')
-        # level_rect = level_text.get_rect(center=(self.x + 17, self.y + 18)) # Căn giữa
-        # surface.blit(level_text, level_rect)
-
     def draw(self, surface):
         # Vẽ khung nền
         surface.blit(self.health_frame_surf, (self.x, self.y))
@@ -295,11 +241,11 @@ class HealthBar:
             exp_rect = py.Rect(self.x + 38, self.y + 7 + self.health_height + 9, current_exp_width, self.exp_height)
             surface.blit(exp_surf, exp_rect)
 
-        # Vẽ thanh máu cam (delay) - Vẽ sau EXP để đè lên nếu cần
+        # Vẽ thanh máu cam
         delayed_health_rect = py.Rect(self.x + 38, self.y + 7, self.delayed_health_width, self.health_height)
         surface.blit(self.delayed_health_surf, delayed_health_rect)
 
-        # Vẽ thanh máu đỏ (hiện tại) - Vẽ sau cùng để đè lên thanh cam
+        # Vẽ thanh máu đỏ
         health_rect = py.Rect(self.x + 38, self.y + 7, self.current_health_width, self.health_height)
         surface.blit(self.health_surf, health_rect)
 
@@ -317,8 +263,8 @@ class InfoBar(HealthBar): # Kế thừa Class HealthBar
         self.x = WINDOW_WIDTH - self.health_frame_surf.get_width() - 10
         self.y = WINDOW_HEIGHT - self.health_frame_surf.get_height() - 10
 
-        self.health_width = 244 # Cập nhật chiều rộng tối đa của thanh máu cho InfoBar
-        self.exp_width = 244    # Cập nhật chiều rộng tối đa của thanh EXP cho InfoBar
+        self.health_width = 244
+        self.exp_width = 244
 
         self.cooldown_font = py.font.Font(None, 26)
         self.skill_icon_size = 50 # Kích thước của vùng icon skill
@@ -332,6 +278,7 @@ class InfoBar(HealthBar): # Kế thừa Class HealthBar
         self.cooldown_overlay = py.Surface((self.skill_icon_size, self.skill_icon_size), py.SRCALPHA)
         self.cooldown_overlay.fill((0, 0, 0, 180)) 
 
+        self.skill_key_font = py.font.Font(None, 22)
         self.update_health()
 
     def draw(self, surface):
@@ -409,6 +356,13 @@ class InfoBar(HealthBar): # Kế thừa Class HealthBar
             icon_x = self.x + offset[0]
             icon_y = self.y + offset[1]
 
+            # Vẽ ký tự phím tắt của skill
+            if skill_id in self.game.keybindings:
+                key_name = py.key.name(self.game.keybindings[skill_id]).upper()
+                key_surf = self.skill_key_font.render(key_name, True, 'white')
+                key_rect = key_surf.get_rect(topright=(icon_x + self.skill_icon_size - 3, icon_y + 3))
+                surface.blit(key_surf, key_rect)
+
             is_locked = False
             required_level = 0
             if skill_id == 'skill_2':
@@ -426,21 +380,30 @@ class InfoBar(HealthBar): # Kế thừa Class HealthBar
                 locked_overlay.fill((50, 50, 50, 200)) # Màu xám đậm, khá mờ
                 surface.blit(locked_overlay, (icon_x, icon_y))
 
-                # (Tùy chọn) Vẽ chữ cấp độ yêu cầu nhỏ ở góc
-                level_req_font = py.font.Font(None, 18) # Font nhỏ hơn
+                #Vẽ chữ cấp độ yêu cầu nhỏ ở góc
+                level_req_font = py.font.Font(None, 18) 
                 level_req_text = f"Lv.{required_level}"
                 level_req_surf = level_req_font.render(level_req_text, True, 'yellow')
                 level_req_rect = level_req_surf.get_rect(bottomright=(icon_x + self.skill_icon_size - 4, icon_y + self.skill_icon_size - 2)) # Góc dưới phải
                 surface.blit(level_req_surf, level_req_rect)
 
             else: # Skill không bị khóa, kiểm tra cooldown
-                remaining_cd = self.game.get_skill_cooldown_remaining(skill_id)
-                if remaining_cd > 0:
+                remaining_cd_seconds = 0 
+                is_paused = self.game.menu_state != 'none'
+
+                if is_paused:
+                    # Lấy giá trị đã lưu trữ khi pause từ đối tượng game
+                    remaining_cd_seconds = self.game.paused_skill_display_cooldowns.get(skill_id, 0)
+                else:
+                    # Tính toán như bình thường khi game đang chạy
+                    remaining_cd_seconds = self.game.get_skill_cooldown_remaining(skill_id)
+
+                if remaining_cd_seconds > 0:
                     # 1. Vẽ lớp phủ mờ cooldown
                     surface.blit(self.cooldown_overlay, (icon_x, icon_y))
 
                     # 2. Vẽ text thời gian đếm ngược
-                    timer_text = f"{remaining_cd:.1f}"
+                    timer_text = f"{remaining_cd_seconds:.1f}"
                     timer_surf = self.cooldown_font.render(timer_text, True, 'white')
                     timer_rect = timer_surf.get_rect(
                         center=(icon_x + self.skill_icon_size / 2, icon_y + self.skill_icon_size / 2)
