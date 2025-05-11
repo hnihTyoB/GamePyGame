@@ -15,7 +15,7 @@ class Game:
         #Setup
         py.init()
         self.display_surface = py.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-        py.display.set_caption("League Of Legends Fake")
+        py.display.set_caption("Chibi Survival")
         self.clock = py.time.Clock()
         self.running = True
         
@@ -122,6 +122,7 @@ class Game:
         self.home_anim_delay = 150 # Thời gian trễ giữa các phần tử
 
     def load_images(self):
+        self.imgBg = py.image.load(join('images', 'bg.png'))
         self.bullet_surf = py.image.load(join('images', 'weapon', 'arrow.png')).convert_alpha()    
         
         # self.skill_surf = py.image.load(join('images', 'skill', '7.png')).convert_alpha()
@@ -627,7 +628,9 @@ class Game:
 
     def draw_home_menu(self):
         current_time = py.time.get_ticks()
-        self.display_surface.fill("black")
+        # self.display_surface.fill("black")
+        imgBg_rect = self.imgBg.get_rect(center=(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2))
+        self.display_surface.blit(self.imgBg, imgBg_rect)
         # Vẽ Tiêu đề với hiệu ứng float-in
         title_target_center_x = 250
         title_target_center_y = WINDOW_HEIGHT * 0.18
@@ -640,7 +643,7 @@ class Game:
             initial_alpha=0,
             final_alpha=255
         )
-        title_surf = self.title_font.render("League Of Legends Fake", True, 'orange')
+        title_surf = self.title_font.render("Chibi Survival", True, 'orange')
         title_surf.set_alpha(title_alpha)
         title_rect = title_surf.get_rect(center=(title_target_center_x, title_anim_y))
         self.display_surface.blit(title_surf, title_rect)
@@ -673,6 +676,8 @@ class Game:
             self.display_surface.blit(text_surf, text_rect)
 
     def draw_introduction_screen(self):
+        imgBg_rect = self.imgBg.get_rect(center=(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2))
+        self.display_surface.blit(self.imgBg, imgBg_rect)
         if hasattr(self, 'tblSetting_surf') and hasattr(self, 'tblSetting_rect'):
             self.display_surface.blit(self.tblSetting_surf, self.tblSetting_rect)
         else:
@@ -1145,6 +1150,9 @@ class Game:
                     if hasattr(self, 'player'): self.all_sprites.draw(self.player.rect.center)
                     if hasattr(self, 'player'): self.player.draw_info_bar(self.display_surface)
                     self.display_surface.blit(self.blur_overlay, (0, 0))
+                if self.previous_menu_state == 'home':
+                    imgBg_rect = self.imgBg.get_rect(center=(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2))
+                    self.display_surface.blit(self.imgBg, imgBg_rect)
                 self.draw_settings_menu()
             elif self.game_over:
                 self.draw_gameover_menu()
