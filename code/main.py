@@ -58,17 +58,17 @@ class Game:
 
         # notification
         self.notification_font = py.font.Font(None, 22)
+        self.top_notification_font = py.font.Font(None, 26) 
         self.notification_text = None
         self.notification_start_time = 0
         self.notification_duration = 1500
-        self.notification_float_in_duration = 300
+        self.notification_float_in_duration = 400
+        self.notification_type = None # Loại thông báo: 'welcome', 'unlock_skill_2', 'unlock_skill_3', 'max_level', 'level_up_original', 'skill_status'
 
-        # Tạo các dòng chữ
         self.menu_options = ["Continue", "Setting", "Home"]
         self.menu_rects = []
         self.pause_start_time = 0
 
-        # Keybindings
         self.keybindings = {
             'skill_1': py.K_q,
             'skill_2': py.K_e,
@@ -77,7 +77,6 @@ class Game:
         self.load_keybindings()
         self.rebinding_skill = None # None, 'skill_1', 'skill_2', 'skill_3'
 
-        # Thời gian cooldown cho từng skill
         self.skill_cooldowns = {
             'skill_1': 5000,
             'skill_2': 8000,
@@ -108,18 +107,20 @@ class Game:
         self.start_time = 0
         self.enemies_killed = 0
         self.high_score = 0
-        self.new_record = False
-        self.load_high_score()
+        self.new_record = False      
         self.game_over_options = ["Replay", "Exit", "Home"]
         self.game_over_rects = []
         self.survival_time = 0
+        self.load_high_score()
 
         self.home_buttons = []
         self.create_home_menu()
-        # Animation cho màn hình Home
-        self.home_anim_start_time = 0
-        self.home_anim_duration = 500 
-        self.home_anim_delay = 150 # Thời gian trễ giữa các phần tử
+        # Animation
+        self.menu_anim_start_time  = 0
+        self.menu_anim_duration  = 500 
+        self.menu_anim_delay  = 150
+        self.menu_item_anim_duration = 400 # Thời gian anim cho từng item nhỏ hơn
+        self.game_over_start_time = 0
 
     def load_images(self):
         self.imgBg = py.image.load(join('images', 'bg.png'))
@@ -340,6 +341,7 @@ class Game:
                 if remaining_cd > 0: 
                     self.notification_text = f"Skill 1 on cooldown"
                     self.notification_start_time = py.time.get_ticks()
+                    self.notification_type = "skill_status"
 
         # Skill 2 - Sử dụng keybinding đã lưu
         if self.bow and keys[self.keybindings['skill_2']]:
@@ -350,11 +352,13 @@ class Game:
                 if self.player.level < 2:
                     self.notification_text = "Skill 2 is locked, level 2 required"
                     self.notification_start_time = py.time.get_ticks()
+                    self.notification_type = "skill_status"
                 else: # Đủ cấp độ -> đang cooldown
                     remaining_cd = self.get_skill_cooldown_remaining('skill_2')
                     if remaining_cd > 0:
                         self.notification_text = f"Skill 2 on cooldown"
                         self.notification_start_time = py.time.get_ticks()
+                        self.notification_type = "skill_status"
 
         # Skill 3 - Sử dụng keybinding đã lưu
         if self.bow and keys[self.keybindings['skill_3']]:
@@ -367,11 +371,13 @@ class Game:
                 if self.player.level < 4:
                     self.notification_text = "Skill 3 is locked, level 4 required"
                     self.notification_start_time = py.time.get_ticks()
+                    self.notification_type = "skill_status"
                 else: # Đủ cấp độ -> đang cooldown
                     remaining_cd = self.get_skill_cooldown_remaining('skill_3')
                     if remaining_cd > 0:
                         self.notification_text = f"Skill 3 on cooldown"
                         self.notification_start_time = py.time.get_ticks()
+                        self.notification_type = "skill_status"
 
     def bow_timer(self):
         if not self.can_shoot:
@@ -433,6 +439,11 @@ class Game:
         self.enemy_create = int(1500 * (0.95)**(self.player.level - 1)) # Tính lại enemy_create dựa trên level (nếu có reset giữa game)
         py.time.set_timer(self.enemy_event, self.enemy_create)
         self.enemy_timer_active = True
+        
+        # Lời chào bắt đầu game
+        self.notification_text = "Welcome to Chibi Survival!"
+        self.notification_start_time = py.time.get_ticks()
+        self.notification_type = "welcome"
         self.music.play(loops=-1)
     
     def reset_game(self):
@@ -440,10 +451,7 @@ class Game:
             py.time.set_timer(self.enemy_event, 0)
             self.enemy_timer_active = False
         self.music.stop()
-
-        # Gọi setup để tạo lại mọi thứ
         self.setup()
-        # Đặt lại trạng thái menu về 'none' để bắt đầu chơi
         self.set_menu_state('none')
 
     def bullet_collision(self):
@@ -515,13 +523,38 @@ class Game:
         return current_animated_y, int(current_animated_alpha)
 
     def draw_notification(self):
-        if self.notification_text:
+        if self.notification_text and self.notification_type:
             current_time = py.time.get_ticks()
             elapsed_total_time = current_time - self.notification_start_time
 
             if elapsed_total_time < self.notification_duration:
-                if "Level Up" in self.notification_text:
-                    # Thông báo Level Up: float-in ở giữa màn hình
+                if self.notification_type in ["welcome", "unlock_skill_2", "unlock_skill_3", "max_level"]:
+                    text_surf = self.top_notification_font.render(self.notification_text, True, '#181425')
+                    
+                    # Tạo ảnh nền + chữ
+                    combined_surf = self.tblNotify_surf.copy()
+                    text_rect_on_bg = text_surf.get_rect(center=(combined_surf.get_width() / 2, combined_surf.get_height() / 2 + 2))
+                    combined_surf.blit(text_surf, text_rect_on_bg)
+
+                    target_center_x = WINDOW_WIDTH / 2
+                    target_center_y = combined_surf.get_height() / 2
+
+                    animated_y, animated_alpha = self._calculate_float_in_animation(
+                        animation_start_time=self.notification_start_time,
+                        current_time=current_time,
+                        animation_duration=self.notification_float_in_duration,
+                        target_y=target_center_y,
+                        start_y_offset= 50,
+                        initial_alpha=0,
+                        final_alpha=255
+                    )
+                    
+                    combined_surf.set_alpha(animated_alpha)
+                    final_rect = combined_surf.get_rect(center=(target_center_x, animated_y))
+                    self.display_surface.blit(combined_surf, final_rect)
+
+                # Level Up
+                elif self.notification_type == "level_up_original":
                     notification_surf = self.notification_font.render(self.notification_text, True, '#181425')
                     target_center_x = WINDOW_WIDTH / 2
                     target_center_y = WINDOW_HEIGHT / 2 - 70
@@ -531,27 +564,27 @@ class Game:
                         current_time=current_time,
                         animation_duration=self.notification_float_in_duration,
                         target_y=target_center_y,
-                        start_y_offset=-30,
+                        start_y_offset= -30,
                         initial_alpha=0,
                         final_alpha=255
                     )
-                    
                     notification_surf.set_alpha(animated_alpha)
                     notification_rect = notification_surf.get_rect(center=(target_center_x, animated_y))
-
-
                     self.display_surface.blit(notification_surf, notification_rect)
-                else:
-                    # Thông báo skill (cooldown/locked): không hiệu ứng
+
+                # Thông báo trạng thái kỹ năng: gần thanh info, không có hiệu ứng trôi
+                elif self.notification_type == "skill_status":
                     notification_surf = self.notification_font.render(self.notification_text, True, '#181425')
                     if hasattr(self, 'player') and hasattr(self.player, 'info_bar'):
                         info_bar_x = self.player.info_bar.x
                         info_bar_y = self.player.info_bar.y
                         info_bar_width = self.player.info_bar.health_frame_surf.get_width()
+                        
                         notification_rect = notification_surf.get_rect(midbottom=(info_bar_x + info_bar_width / 2 + 56, info_bar_y))
                         self.display_surface.blit(notification_surf, notification_rect)
             else:
                 self.notification_text = None
+                self.notification_type = None
 
     def set_menu_state(self, new_state):
         old_state = self.menu_state
@@ -609,7 +642,7 @@ class Game:
         if new_state == 'paused' and not self.menu_rects:
             self.create_pause_menu()
         elif new_state == 'home' and old_state != 'home': # Chỉ reset anim time khi thực sự chuyển đến home
-            self.home_anim_start_time = py.time.get_ticks()
+            self.menu_anim_start_time  = py.time.get_ticks()
             self.create_pause_menu()
         elif new_state == 'home' and not self.home_buttons:
             self.create_home_menu()
@@ -635,9 +668,9 @@ class Game:
         title_target_center_x = 250
         title_target_center_y = WINDOW_HEIGHT * 0.18
         title_anim_y, title_alpha = self._calculate_float_in_animation(
-            animation_start_time=self.home_anim_start_time, # Tiêu đề bắt đầu ngay
+            animation_start_time=self.menu_anim_start_time , # Tiêu đề bắt đầu ngay
             current_time=current_time,
-            animation_duration=self.home_anim_duration,
+            animation_duration=self.menu_anim_duration ,
             target_y=title_target_center_y,
             start_y_offset=-50, # Float từ dưới lên
             initial_alpha=0,
@@ -650,7 +683,7 @@ class Game:
 
         # Vẽ các nút với hiệu ứng float-in và trễ
         for i, button in enumerate(self.home_buttons):
-            button_anim_actual_start_time = self.home_anim_start_time + (i + 1) * self.home_anim_delay
+            button_anim_actual_start_time = self.menu_anim_start_time  + (i + 1) * self.menu_anim_delay 
             
             button_target_center_y = button['rect'].centery # Lấy Y mục tiêu từ rect đã tạo
             button_target_center_x = button['rect'].centerx
@@ -658,7 +691,7 @@ class Game:
             btn_anim_y, btn_alpha = self._calculate_float_in_animation(
                 animation_start_time=button_anim_actual_start_time,
                 current_time=current_time,
-                animation_duration=self.home_anim_duration,
+                animation_duration=self.menu_anim_duration ,
                 target_y=button_target_center_y,
                 start_y_offset=-50, # Float từ dưới lên
                 initial_alpha=0,
@@ -928,52 +961,140 @@ class Game:
     def draw_gameover_menu(self):
         if not self.game_over_rects:
             self.create_gameover_menu()
-        self.display_surface.blit(self.tblFinish_surf, self.tblFinish_rect)
+        current_time = py.time.get_ticks()
+
+        # Start Y offsets
+        float_from_bottom_offset = 80 
+        info_delay_per_line = 100
+
+        table_animation_start_point = self.game_over_start_time
+        title_animation_start_point = self.game_over_start_time 
+
+        info_group_start_delay = self.menu_anim_duration * 0.4 
+
+        new_record_start_delay_from_start = info_group_start_delay + (len(info_lines_data) * info_delay_per_line if 'info_lines_data' in locals() else 3 * info_delay_per_line) + self.menu_anim_duration * 0.1
+
+        if self.new_record:
+            buttons_group_start_delay = new_record_start_delay_from_start + self.menu_anim_duration * 0.3
+        else:
+            buttons_group_start_delay = info_group_start_delay + (len(info_lines_data) if 'info_lines_data' in locals() else 3 * info_delay_per_line) + self.menu_anim_duration * 0.3
+
+        table_target_centery = self.tblFinish_rect.centery
+        table_anim_y, table_alpha = self._calculate_float_in_animation(
+            animation_start_time=table_animation_start_point,
+            current_time=current_time,
+            animation_duration=self.menu_anim_duration,
+            target_y=table_target_centery,
+            start_y_offset=-float_from_bottom_offset,
+            initial_alpha=0,
+            final_alpha=255
+        )
+        temp_tbl_surf = self.tblFinish_surf.copy()
+        temp_tbl_surf.set_alpha(table_alpha)
+        animated_table_rect = temp_tbl_surf.get_rect(center=(self.tblFinish_rect.centerx, table_anim_y))
+        self.display_surface.blit(temp_tbl_surf, animated_table_rect)
+
         # Game Over
+        game_over_target_y = WINDOW_HEIGHT / 2 - 151
+        game_over_anim_y, game_over_alpha = self._calculate_float_in_animation(
+            animation_start_time=title_animation_start_point,
+            current_time=current_time,
+            animation_duration=self.menu_anim_duration,
+            target_y=game_over_target_y,
+            start_y_offset=-float_from_bottom_offset,
+            initial_alpha=0,
+            final_alpha=255
+        )
         game_over_text = self.font.render("GAME OVER", True, 'white')
-        game_over_rect = game_over_text.get_rect(center=(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 - 151))
+        game_over_text.set_alpha(game_over_alpha)
+        game_over_rect = game_over_text.get_rect(center=(WINDOW_WIDTH / 2, game_over_anim_y))
         self.display_surface.blit(game_over_text, game_over_rect)
         # Thông tin
-        minutes = int(self.survival_time // 60)
-        seconds = int(self.survival_time % 60)
         total_score = self.enemies_killed * 100 + int(self.survival_time) * 5
         info_x = WINDOW_WIDTH / 2 - 245
         value_x = WINDOW_WIDTH / 2 + 220
-        y_offset = WINDOW_HEIGHT / 2 - 90
-        # Thời gian sống
-        survival_time_text = self.font.render("Survival Time", True, 'black')
-        survival_time_rect = survival_time_text.get_rect(topleft=(info_x, y_offset))
-        self.display_surface.blit(survival_time_text, survival_time_rect)
-        survival_time_value = self.font.render(f"{minutes:02d}:{seconds:02d}", True, 'black')
-        survival_time_value_rect = survival_time_value.get_rect(topright=(value_x, y_offset))
-        self.display_surface.blit(survival_time_value, survival_time_value_rect)
-        y_offset += 50
-        # Kẻ thù đã tiêu diệt
-        enemies_killed_text = self.font.render("Enemies Killed", True, 'black')
-        enemies_killed_rect = enemies_killed_text.get_rect(topleft=(info_x, y_offset))
-        self.display_surface.blit(enemies_killed_text, enemies_killed_rect)
-        enemies_killed_value = self.font.render(f"{self.enemies_killed}", True, 'black')
-        enemies_killed_value_rect = enemies_killed_value.get_rect(topright=(value_x, y_offset))
-        self.display_surface.blit(enemies_killed_value, enemies_killed_value_rect)
-        y_offset += 50
-        # Tổng điểm
-        total_score_text = self.font.render("Total Score", True, 'black')
-        total_score_rect = total_score_text.get_rect(topleft=(info_x, y_offset))
-        self.display_surface.blit(total_score_text, total_score_rect)
-        total_score_value = self.font.render(f"{total_score}", True, 'black')
-        total_score_value_rect = total_score_value.get_rect(topright=(value_x, y_offset))
-        self.display_surface.blit(total_score_value, total_score_value_rect)
-        y_offset += 50
+        y_offset_base = WINDOW_HEIGHT / 2 - 90
+        line_height = 50
+
+        info_lines_data = [
+            ("Survival Time", f"{int(self.survival_time // 60):02d}:{int(self.survival_time % 60):02d}"),
+            ("Enemies Killed", f"{self.enemies_killed}"),
+            ("Total Score", f"{total_score}")
+        ]
+
+        for i, (label, value) in enumerate(info_lines_data):
+            target_y_on_screen = y_offset_base + i * line_height
+            anim_start_time_for_info_line = self.game_over_start_time + info_group_start_delay + (i * info_delay_per_line)
+
+            info_anim_y, info_alpha = self._calculate_float_in_animation(
+                animation_start_time=anim_start_time_for_info_line,
+                current_time=current_time,
+                animation_duration=self.menu_anim_duration,
+                target_y=target_y_on_screen,
+                start_y_offset=-float_from_bottom_offset,
+                initial_alpha=0,
+                final_alpha=255
+            )
+
+            # Vẽ label
+            label_surf = self.font.render(label, True, 'black')
+            label_surf.set_alpha(info_alpha)
+            label_rect = label_surf.get_rect(topleft=(info_x, info_anim_y))
+            self.display_surface.blit(label_surf, label_rect)
+
+            # Vẽ value
+            value_surf = self.font.render(value, True, 'black')
+            value_surf.set_alpha(info_alpha)
+            value_rect = value_surf.get_rect(topright=(value_x, info_anim_y))
+            self.display_surface.blit(value_surf, value_rect)
+
         # Kỉ lục mới
         if self.new_record:
+            new_record_target_y = WINDOW_HEIGHT / 2 + 75
+            anim_start_time_for_new_record = self.game_over_start_time + new_record_start_delay_from_start
+
+            new_record_anim_y, new_record_alpha = self._calculate_float_in_animation(
+                animation_start_time=anim_start_time_for_new_record,
+                current_time=current_time,
+                animation_duration=self.menu_anim_duration,
+                target_y=new_record_target_y,
+                start_y_offset=-float_from_bottom_offset,
+                initial_alpha=0,
+                final_alpha=255
+            )
+
             new_record_text = self.font.render("New Record!", True, 'red')
-            new_record_rect = new_record_text.get_rect(center=(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 + 75))
+            new_record_text.set_alpha(new_record_alpha)
+            new_record_rect = new_record_text.get_rect(center=(WINDOW_WIDTH / 2, new_record_anim_y))
             self.display_surface.blit(new_record_text, new_record_rect)
         # Lựa chọn
-        for text_surface, text_rect in self.game_over_rects:
-            button_rect = self.btnBig_surf.get_rect(center=text_rect.center)
-            self.display_surface.blit(self.btnBig_surf, button_rect)
-            self.display_surface.blit(text_surface, text_rect)
+        for index, (text_surface, text_rect) in enumerate(self.game_over_rects):
+            button_target_center = text_rect.center
+            anim_start_time_for_button = self.game_over_start_time + buttons_group_start_delay + (index * self.menu_anim_delay)
+
+            button_anim_y, button_alpha = self._calculate_float_in_animation(
+                animation_start_time=anim_start_time_for_button,
+                current_time=current_time,
+                animation_duration=self.menu_anim_duration,
+                target_y=button_target_center[1],
+                start_y_offset=-float_from_bottom_offset,
+                initial_alpha=0,
+                final_alpha=255
+            )
+
+            animated_button_center = (button_target_center[0], button_anim_y)
+            button_rect = self.btnBig_surf.get_rect(center=animated_button_center)
+
+            # Vẽ nút với alpha
+            temp_btn_bg_surf = self.btnBig_surf.copy()
+            temp_btn_bg_surf.set_alpha(button_alpha)
+            self.display_surface.blit(temp_btn_bg_surf, button_rect)
+
+            # Vẽ chữ với alpha
+            temp_text_surf = self.font.render(self.game_over_options[index], True, 'white')
+            temp_text_surf.set_alpha(button_alpha)
+            text_rect_animated = temp_text_surf.get_rect(center=animated_button_center)
+            self.display_surface.blit(temp_text_surf, text_rect_animated)
 
     def run(self):
         while self.running:
@@ -983,6 +1104,7 @@ class Game:
             if hasattr(self, 'player') and self.player.is_dead and not self.game_over:
                 if current_ticks - self.player.death_time >= self.player.death_duration:
                     self.game_over = True
+                    self.game_over_start_time = current_ticks
                     # Tính thời gian sống sót tại thời điểm chết
                     self.survival_time = (self.player.death_time - self.start_time) / 1000
                     self.check_new_record()

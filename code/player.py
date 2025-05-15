@@ -111,9 +111,24 @@ class Player(py.sprite.Sprite):
     def level_up(self):
         if self.level < self.max_level:
             self.level += 1
-            if hasattr(self.game, 'notification_text'):
-                self.game.notification_text = "Level Up!"
-                self.game.notification_start_time = py.time.get_ticks()
+            # Ưu tiên thông báo mở khóa skill hoặc đạt max level
+            if self.level == 2: # Mở khóa Skill 2
+                self.game.notification_text = "Skill 2 Unlocked!"
+                self.game.notification_type = "unlock_skill_2"
+            elif self.level == 4: # Mở khóa Skill 3
+                self.game.notification_text = "Skill 3 Unlocked!"
+                self.game.notification_type = "unlock_skill_3"
+            elif self.level == self.max_level: # Đạt cấp tối đa
+                self.game.notification_text = "Max Level Reached!"
+                self.game.notification_type = "max_level"
+            else: # Thông báo lên cấp thông thường
+                if hasattr(self.game, 'notification_text'):
+                    self.game.notification_text = "Level Up"
+                    # self.game.notification_start_time = py.time.get_ticks()
+                    self.game.notification_type = "level_up_original" 
+            
+            self.game.notification_start_time = py.time.get_ticks()
+
             exp_overflow = self.current_exp - self.max_exp # Giữ lại exp thừa
             self.current_exp = max(0, exp_overflow) # Đặt exp về 0 hoặc exp thừa
             self.max_exp = int(100 * (1.2)**(self.level - 1))
@@ -121,7 +136,7 @@ class Player(py.sprite.Sprite):
             self.update_max_health()
             # Có thể gọi update_exp lần nữa nếu có exp thừa
             if self.current_exp > 0:
-                self.update_exp(0) # Để kiểm tra level up lần nữa nếu exp thừa đủ
+                self.update_exp(0) # Để kiểm tra level up lần nữa nếu exp thừa đủ và chưa max level
 
     def update_max_health(self):
         health_ratio = self.health / self.health_bar.max_health
@@ -198,7 +213,7 @@ class HealthBar:
         self.health_surf.fill('red')
 
     def update_health(self):
-        self.max_health = self.player.health_bar.max_health # Lấy max_health mới nh
+        self.max_health = self.player.health_bar.max_health # Lấy max_health mới
         # Tính toán tỉ lệ và chiều rộng thanh máu đỏ
         if self.max_health > 0: 
             self.health_ratio = max(0, min(1, self.player.health / self.max_health)) # Đảm bảo tỉ lệ từ 0 đến 1
