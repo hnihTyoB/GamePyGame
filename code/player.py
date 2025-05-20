@@ -113,21 +113,26 @@ class Player(py.sprite.Sprite):
             self.level += 1
             # Ưu tiên thông báo mở khóa skill hoặc đạt max level
             if self.level == 2: # Mở khóa Skill 2
+                self.game.sound_notify.play()
                 self.game.notification_text = "Skill 2 Unlocked!"
                 self.game.notification_type = "unlock_skill_2"
             elif self.level == 4: # Mở khóa Skill 3
+                self.game.sound_notify.play()
                 self.game.notification_text = "Skill 3 Unlocked!"
                 self.game.notification_type = "unlock_skill_3"
             elif self.level == self.max_level: # Đạt cấp tối đa
+                self.game.sound_notify.play()
                 self.game.notification_text = "Max Level Reached!"
                 self.game.notification_type = "max_level"
             else: # Thông báo lên cấp thông thường
                 if hasattr(self.game, 'notification_text'):
+                    self.game.sound_levelUp.play()
                     self.game.notification_text = "Level Up"
                     # self.game.notification_start_time = py.time.get_ticks()
                     self.game.notification_type = "level_up_original" 
             
             self.game.notification_start_time = py.time.get_ticks()
+            self.game.notification_sound_played = False # Reset cờ âm thanh khi thông báo mới bắt đầu
 
             exp_overflow = self.current_exp - self.max_exp # Giữ lại exp thừa
             self.current_exp = max(0, exp_overflow) # Đặt exp về 0 hoặc exp thừa
@@ -185,14 +190,12 @@ class HealthBar:
         self.player = player
         self.game = game
         self.max_health = 1000
-        # self.player.health = self.max_health
         self.health_frame_surf = py.image.load(join('images', 'player', 'hp.png')).convert_alpha()
         self.health_width = 119
         self.health_height = 9
         self.x = WINDOW_WIDTH / 2 - self.health_frame_surf.get_width() / 2
         self.y = WINDOW_HEIGHT / 2 - 118
         self.current_health_width = self.health_width
-        # self.health_ratio = self.player.health / self.max_health
         #Thanh máu phụ
         self.delayed_health = self.player.health
         self.delayed_health_width = self.health_width
@@ -201,8 +204,6 @@ class HealthBar:
         self.delayed_health_surf = py.Surface((self.delayed_health_width, self.health_height), py.SRCALPHA) # Tạo surface cho thanh máu cam
         self.delayed_health_surf.fill('orange')
         # EXP Bar
-        # self.max_exp = 100  # EXP cần để lên cấp 2
-        # self.current_exp = 0
         self.exp_width = 104
         self.exp_height = 4
         self.font = py.font.Font(None, 26)

@@ -7,7 +7,6 @@ from groups import AllSprite
 from random import choice
 from math import radians
 import math
-import time
 import json
 
 class Game:
@@ -26,28 +25,45 @@ class Game:
         self.skill_sprites = py.sprite.Group()
         self.enemy_sprites = py.sprite.Group()
 
-        #bow timer
+        #timer
         self.can_shoot = True
         self.shoot_time = 0
         self.bow_cooldown = 1000
+        self.last_damaged_time = 0 #voice_damaged
 
         #enemy timer
         self.enemy_create = 1500
         self.enemy_event = py.event.custom_type()
-        # py.time.set_timer(self.enemy_event, self.enemy_create)
         self.spam_positions = []
         self.damaged_enemies = {}
 
         #sound
         self.sound_shoot = py.mixer.Sound(join('audio', 'shoot.wav'))
         self.sound_shoot.set_volume(0.3)
-        self.impact_sound = py.mixer.Sound(join('audio', 'impact.ogg'))
-        self.impact_sound.set_volume(0.3)
-        self.music = py.mixer.Sound(join('audio', 'music.wav'))
+        self.sound_skill2 = py.mixer.Sound(join('audio', 'healed.mp3'))
+        self.sound_skill2.set_volume(0.3)
+        self.sound_skill3 = py.mixer.Sound(join('audio', 'laser.wav'))
+        self.sound_skill3.set_volume(0.2)
+        self.sound_impact = py.mixer.Sound(join('audio', 'impact.ogg'))
+        self.sound_impact.set_volume(0.3)
+        self.sound_damaged = py.mixer.Sound(join('audio', 'damaged.wav'))
+        self.sound_damaged.set_volume(0.3)
+        self.sound_wait = py.mixer.Sound(join('audio', 'wait.mp3'))
+        self.sound_wait.set_volume(0.3)
+        self.music = py.mixer.Sound(join('audio', 'music.mp3'))
         self.music.set_volume(0.3)
-        # self.music.play(loops=-1)
+        self.sound_levelUp = py.mixer.Sound(join('audio', 'levelup.mp3'))
+        self.sound_levelUp.set_volume(0.3)
+        self.sound_notify = py.mixer.Sound(join('audio', 'notify.mp3'))
+        self.sound_notify.set_volume(0.3)   
+        self.voice_skill1 = py.mixer.Sound(join('audio', 'voice_attack.wav'))
+        self.voice_skill1.set_volume(0.4)
+        self.voice_skill2 = py.mixer.Sound(join('audio', 'voice_healed.wav'))
+        self.voice_skill2.set_volume(0.4)
+        self.voice_skill3 = py.mixer.Sound(join('audio', 'voice_laser.wav'))
+        self.voice_skill3.set_volume(0.4)
         #  Lưu trữ âm lượng hiện tại  
-        self.music_volume = self.music.get_volume() # Lấy âm lượng ban đầu
+        self.music_volume = self.music.get_volume()
         self.sfx_volume = self.sound_shoot.get_volume()  
 
         # Tạo font chữ
@@ -94,7 +110,6 @@ class Game:
 
         #setup
         self.load_images()
-        # self.setup()
 
         # Bắt đầu với trạng thái 'home'
         self.menu_state = 'home'
@@ -119,6 +134,8 @@ class Game:
         self.menu_anim_start_time  = 0
         self.menu_anim_duration  = 500 
         self.menu_anim_delay  = 150
+        if self.menu_state == 'home':
+            self.sound_wait.play(loops=-1)
         self.menu_item_anim_duration = 400 # Thời gian anim cho từng item nhỏ hơn
         self.game_over_start_time = 0
 
@@ -326,6 +343,7 @@ class Game:
             if self.is_skill_ready('skill_1'):
                 self.skill_last_used['skill_1'] = py.time.get_ticks()
                 self.sound_shoot.play()
+                self.voice_skill1.play()
                 pos = self.bow.rect.center + self.bow.player_direction * 50
                 num_bullets = 5
                 angle_offset = 15
@@ -347,6 +365,8 @@ class Game:
         if self.bow and keys[self.keybindings['skill_2']]:
             if self.is_skill_ready('skill_2'):
                 self.skill_last_used['skill_2'] = py.time.get_ticks()
+                self.sound_skill2.play()
+                self.voice_skill2.play()
                 Skill_2(self.player.rect.center, self.player, (self.all_sprites, self.skill_sprites))
             else:
                 if self.player.level < 2:
@@ -364,9 +384,9 @@ class Game:
         if self.bow and keys[self.keybindings['skill_3']]:
             if self.is_skill_ready('skill_3'):
                 self.skill_last_used['skill_3'] = py.time.get_ticks()
-                self.sound_shoot.play()
+                self.voice_skill3.play()
                 pos = self.bow.rect.center + self.bow.player_direction * 555
-                Skill_3(self.skill_frames, pos, self.bow.player_direction, (self.all_sprites, self.skill_sprites))
+                Skill_3(self.skill_frames, pos, self.bow.player_direction, (self.all_sprites, self.skill_sprites), self.player)
             else:
                 if self.player.level < 4:
                     self.notification_text = "Skill 3 is locked, level 4 required"
@@ -399,19 +419,19 @@ class Game:
 
         map_data = load_pygame(join('data', 'maps', 'world.tmx'))
 
-        # Load Ground
+        # Tải nền
         for x, y, image in map_data.get_layer_by_name('Ground').tiles():
             Sprite((x * TILE_SIZE, y * TILE_SIZE), image, self.all_sprites)
 
-        # Load Objects (có va chạm vật lý)
+        # Tải vật
         for obj in map_data.get_layer_by_name('Objects'):
             CollisionSprite((obj.x, obj.y), obj.image, (self.all_sprites, self.collision_sprites))
 
-        # Load Collisions (vùng vô hình)
+        # Tải vùng vô hình
         for obj in map_data.get_layer_by_name('Collisions'):
             CollisionSprite((obj.x, obj.y), py.Surface((obj.width, obj.height)), self.collision_sprites)
 
-        # Load Entities (Player và Enemy Spawns)
+        # Tải Player và Enemy
         player_pos = (WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2) # Vị trí mặc định nếu không tìm thấy
         for obj in map_data.get_layer_by_name('Entities'):
             if obj.name == 'Player':
@@ -444,6 +464,7 @@ class Game:
         self.notification_text = "Welcome to Chibi Survival!"
         self.notification_start_time = py.time.get_ticks()
         self.notification_type = "welcome"
+        self.sound_notify.play()
         self.music.play(loops=-1)
     
     def reset_game(self):
@@ -451,6 +472,7 @@ class Game:
             py.time.set_timer(self.enemy_event, 0)
             self.enemy_timer_active = False
         self.music.stop()
+        self.sound_wait.stop()
         self.setup()
         self.set_menu_state('none')
 
@@ -459,7 +481,7 @@ class Game:
             for bullet in self.bullet_sprites:
                 for enemy in self.enemy_sprites:
                     if enemy.hitbox_rect.colliderect(bullet.rect):
-                        self.impact_sound.play()
+                        self.sound_impact.play()
                         enemy.destroy()
                         bullet.kill()
                         self.enemies_killed += 1
@@ -470,7 +492,7 @@ class Game:
             if isinstance(skill, Skill_1):
                 for enemy in self.enemy_sprites:
                     if enemy.hitbox_rect.colliderect(skill.rect):
-                        self.impact_sound.play()
+                        self.sound_impact.play()
                         enemy.destroy()
                         self.enemies_killed += 1
                         skill.kill()
@@ -494,7 +516,6 @@ class Game:
                 current_damaged_enemies = self.damaged_enemies.copy()
 
                 for enemy in colliding_enemies_data:
-                    # Kiểm tra xem enemy có trong damaged_enemies không VÀ đã đủ cooldown chưa
                     if enemy not in self.damaged_enemies or current_time - self.damaged_enemies.get(enemy, 0) >= self.player.health_bar.damage_cooldown:
                         damage += 100
                         current_damaged_enemies[enemy] = current_time # Cập nhật thời gian gây sát thương
@@ -502,15 +523,18 @@ class Game:
                 self.damaged_enemies = current_damaged_enemies # Cập nhật lại dictionary gốc
 
                 if damage > 0: # Chỉ trừ máu nếu có sát thương mới
+                    if current_time - self.last_damaged_time >= 1000:
+                        self.sound_damaged.play()
+                        self.last_damaged_time = current_time
                     self.player.health -= damage
                     if self.player.health <= 0:
                         self.player.is_dead = True
                         self.player.death_time = py.time.get_ticks()
-                        py.mixer.pause()
+                        self.music.stop()
             else:
                  pass
 
-    def _calculate_float_in_animation(self, animation_start_time, current_time, animation_duration, target_y, start_y_offset=30, initial_alpha=0, final_alpha=255):
+    def float_in_animation(self, animation_start_time, current_time, animation_duration, target_y, start_y_offset=30, initial_alpha=0, final_alpha=255):
         elapsed_time = current_time - animation_start_time
         progress = 0.0
         if animation_duration > 0:
@@ -539,7 +563,7 @@ class Game:
                     target_center_x = WINDOW_WIDTH / 2
                     target_center_y = combined_surf.get_height() / 2
 
-                    animated_y, animated_alpha = self._calculate_float_in_animation(
+                    animated_y, animated_alpha = self.float_in_animation(
                         animation_start_time=self.notification_start_time,
                         current_time=current_time,
                         animation_duration=self.notification_float_in_duration,
@@ -559,7 +583,7 @@ class Game:
                     target_center_x = WINDOW_WIDTH / 2
                     target_center_y = WINDOW_HEIGHT / 2 - 70
 
-                    animated_y, animated_alpha = self._calculate_float_in_animation(
+                    animated_y, animated_alpha = self.float_in_animation(
                         animation_start_time=self.notification_start_time,
                         current_time=current_time,
                         animation_duration=self.notification_float_in_duration,
@@ -594,6 +618,31 @@ class Game:
 
         self.menu_state = new_state
 
+        # Sound
+        if old_state == 'none' and new_state != 'none': # Rời khỏi màn hình chơi game để vào menu/pause
+            # Tạm dừng tất cả các kênh âm thanh đang hoạt động (bao gồm cả self.music)
+            py.mixer.pause() 
+        elif old_state == 'home' and new_state != 'home': # Rời khỏi màn hình home
+            if new_state == 'none': # Ví dụ: Home -> Start Game
+                self.sound_wait.stop()
+        if new_state == 'none': # Vào màn hình chơi game
+            if old_state != 'none': # Đảm bảo thực sự chuyển vào 'none' từ một menu/trạng thái tạm dừng
+                self.sound_wait.stop()
+                py.mixer.unpause() 
+        elif new_state == 'home': # Vào màn hình home
+            if self.music.get_num_channels() > 0: # Dừng nhạc game nếu đang phát/tạm dừng
+                self.music.stop()
+
+            is_sound_wait_playing = self.sound_wait.get_num_channels() > 0
+            # Nếu đang từ settings/introduction về home VÀ nhạc home vẫn đang phát, thì không làm gì cả
+            if old_state in ['settings', 'introduction'] and is_sound_wait_playing:
+                pass
+            else:
+                # Đối với các trường hợp khác (từ game over về home, từ pause về home, hoặc nhạc home chưa phát)
+                # dừng nhạc home (nếu có) để tránh phát chồng, rồi phát lại.
+                self.sound_wait.stop() 
+                self.sound_wait.play(loops=-1)
+
         game_inactive_states = ['paused', 'settings', 'home', 'introduction']
         is_paused_now = (new_state in game_inactive_states)
         was_paused_before = (old_state in game_inactive_states)
@@ -605,7 +654,6 @@ class Game:
             if self.enemy_timer_active:
                 py.time.set_timer(self.enemy_event, 0)
                 self.enemy_timer_active = False
-            py.mixer.pause()
             self.pause_start_time = current_ticks # Ghi lại thời điểm bắt đầu pause
 
             # Lưu trữ giá trị cooldown để hiển thị
@@ -637,7 +685,6 @@ class Game:
                     self.enemy_create = int(1500 * (0.95)**(self.player.level - 1))
                     py.time.set_timer(self.enemy_event, self.enemy_create)
                     self.enemy_timer_active = True
-                py.mixer.unpause()
 
         if new_state == 'paused' and not self.menu_rects:
             self.create_pause_menu()
@@ -661,13 +708,12 @@ class Game:
 
     def draw_home_menu(self):
         current_time = py.time.get_ticks()
-        # self.display_surface.fill("black")
         imgBg_rect = self.imgBg.get_rect(center=(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2))
         self.display_surface.blit(self.imgBg, imgBg_rect)
         # Vẽ Tiêu đề với hiệu ứng float-in
         title_target_center_x = 250
         title_target_center_y = WINDOW_HEIGHT * 0.18
-        title_anim_y, title_alpha = self._calculate_float_in_animation(
+        title_anim_y, title_alpha = self.float_in_animation(
             animation_start_time=self.menu_anim_start_time , # Tiêu đề bắt đầu ngay
             current_time=current_time,
             animation_duration=self.menu_anim_duration ,
@@ -688,7 +734,7 @@ class Game:
             button_target_center_y = button['rect'].centery # Lấy Y mục tiêu từ rect đã tạo
             button_target_center_x = button['rect'].centerx
 
-            btn_anim_y, btn_alpha = self._calculate_float_in_animation(
+            btn_anim_y, btn_alpha = self.float_in_animation(
                 animation_start_time=button_anim_actual_start_time,
                 current_time=current_time,
                 animation_duration=self.menu_anim_duration ,
@@ -980,7 +1026,7 @@ class Game:
             buttons_group_start_delay = info_group_start_delay + (len(info_lines_data) if 'info_lines_data' in locals() else 3 * info_delay_per_line) + self.menu_anim_duration * 0.3
 
         table_target_centery = self.tblFinish_rect.centery
-        table_anim_y, table_alpha = self._calculate_float_in_animation(
+        table_anim_y, table_alpha = self.float_in_animation(
             animation_start_time=table_animation_start_point,
             current_time=current_time,
             animation_duration=self.menu_anim_duration,
@@ -996,7 +1042,7 @@ class Game:
 
         # Game Over
         game_over_target_y = WINDOW_HEIGHT / 2 - 151
-        game_over_anim_y, game_over_alpha = self._calculate_float_in_animation(
+        game_over_anim_y, game_over_alpha = self.float_in_animation(
             animation_start_time=title_animation_start_point,
             current_time=current_time,
             animation_duration=self.menu_anim_duration,
@@ -1026,7 +1072,7 @@ class Game:
             target_y_on_screen = y_offset_base + i * line_height
             anim_start_time_for_info_line = self.game_over_start_time + info_group_start_delay + (i * info_delay_per_line)
 
-            info_anim_y, info_alpha = self._calculate_float_in_animation(
+            info_anim_y, info_alpha = self.float_in_animation(
                 animation_start_time=anim_start_time_for_info_line,
                 current_time=current_time,
                 animation_duration=self.menu_anim_duration,
@@ -1053,7 +1099,7 @@ class Game:
             new_record_target_y = WINDOW_HEIGHT / 2 + 75
             anim_start_time_for_new_record = self.game_over_start_time + new_record_start_delay_from_start
 
-            new_record_anim_y, new_record_alpha = self._calculate_float_in_animation(
+            new_record_anim_y, new_record_alpha = self.float_in_animation(
                 animation_start_time=anim_start_time_for_new_record,
                 current_time=current_time,
                 animation_duration=self.menu_anim_duration,
@@ -1072,7 +1118,7 @@ class Game:
             button_target_center = text_rect.center
             anim_start_time_for_button = self.game_over_start_time + buttons_group_start_delay + (index * self.menu_anim_delay)
 
-            button_anim_y, button_alpha = self._calculate_float_in_animation(
+            button_anim_y, button_alpha = self.float_in_animation(
                 animation_start_time=anim_start_time_for_button,
                 current_time=current_time,
                 animation_duration=self.menu_anim_duration,
@@ -1112,6 +1158,8 @@ class Game:
                     if self.enemy_timer_active:
                         py.time.set_timer(self.enemy_event, 0)
                         self.enemy_timer_active = False
+                    self.music.stop()
+                    self.sound_wait.play(loops=-1)
 
             for event in py.event.get():
                 if event.type == py.QUIT:
@@ -1201,18 +1249,38 @@ class Game:
                         elif self.btnMusicDecrease_rect.collidepoint(event.pos):
                             self.music_volume = max(0.0, self.music_volume - 0.1)
                             self.music.set_volume(self.music_volume)
+                            self.sound_wait.set_volume(self.music_volume)
                         elif self.btnMusicIncrease_rect.collidepoint(event.pos):
                             self.music_volume = min(1.0, self.music_volume + 0.1)
                             self.music.set_volume(self.music_volume)
+                            self.sound_wait.set_volume(self.music_volume)
                         # Xử lý click SFX
                         elif self.btnSfxDecrease_rect.collidepoint(event.pos):
                             self.sfx_volume = max(0.0, self.sfx_volume - 0.1)
                             self.sound_shoot.set_volume(self.sfx_volume)
-                            self.impact_sound.set_volume(self.sfx_volume)
+                            self.sound_skill2.set_volume(self.sfx_volume)
+                            self.sound_skill3.set_volume(self.sfx_volume - 0.1)
+                            self.sound_impact.set_volume(self.sfx_volume)
+                            self.sound_impact.set_volume(self.sfx_volume)
+                            self.sound_damaged.set_volume(self.sfx_volume)
+                            self.sound_levelUp.set_volume(self.sfx_volume)
+                            self.sound_notify.set_volume(self.sfx_volume)
+                            self.voice_skill1.set_volume(self.sfx_volume + 0.1)                     
+                            self.voice_skill2.set_volume(self.sfx_volume + 0.1)
+                            self.voice_skill3.set_volume(self.sfx_volume + 0.1)
                         elif self.btnSfxIncrease_rect.collidepoint(event.pos):
                             self.sfx_volume = min(1.0, self.sfx_volume + 0.1)
                             self.sound_shoot.set_volume(self.sfx_volume)
-                            self.impact_sound.set_volume(self.sfx_volume)
+                            self.sound_skill2.set_volume(self.sfx_volume)
+                            self.sound_skill3.set_volume(self.sfx_volume - 0.1)
+                            self.sound_impact.set_volume(self.sfx_volume)
+                            self.sound_impact.set_volume(self.sfx_volume)
+                            self.sound_damaged.set_volume(self.sfx_volume)
+                            self.sound_levelUp.set_volume(self.sfx_volume)
+                            self.sound_notify.set_volume(self.sfx_volume)
+                            self.voice_skill1.set_volume(self.sfx_volume + 0.1)                     
+                            self.voice_skill2.set_volume(self.sfx_volume + 0.1)
+                            self.voice_skill3.set_volume(self.sfx_volume + 0.1)
                         elif not self.rebinding_skill:
                             if hasattr(self, 'skill1_key_rect') and self.skill1_key_rect.collidepoint(event.pos):
                                 self.rebinding_skill = 'skill_1'

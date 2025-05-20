@@ -130,7 +130,7 @@ class Enemy(py.sprite.Sprite):
             self.hitbox_rect = py.Rect(0, 0, 0, 0)
             self.collision_sprites.remove(self)
             if not self.sound_played:
-                self.player.game.impact_sound.play()
+                self.player.game.sound_impact.play()
                 self.sound_played = True
 
     def death_timer(self):
@@ -212,8 +212,9 @@ class Skill_2(py.sprite.Sprite):
              self.player.info_bar.update_health() # Cập nhật cả info bar
 
 class Skill_3(py.sprite.Sprite):
-    def __init__(self, frames, pos, direction, groups):
+    def __init__(self, frames, pos, direction, groups, player):
         super().__init__(groups)
+        self.player = player
         self.frames = frames
         self.frame_index = 0
         self.direction = direction.normalize()
@@ -249,6 +250,7 @@ class Skill_3(py.sprite.Sprite):
 
             if self.frame_index == 7:
                 self.mask = py.mask.from_surface(self.image)
+                self.player.game.sound_skill3.play()
             else:
                 self.mask = None
 
