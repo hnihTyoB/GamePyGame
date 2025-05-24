@@ -67,14 +67,16 @@ class Game:
         self.sfx_volume = self.sound_shoot.get_volume()  
 
         # Tạo font chữ
-        self.font = py.font.Font(None, 45)
-        self.title_font = py.font.Font(None, 55) 
-        self.label_font = py.font.Font(None, 40)
-        self.home_button_font = py.font.Font(None, 40) 
+        self.font = py.font.Font(FONT_TEXT, 45)
+        self.title_font1 = py.font.Font(FONT_TITLE, 100)
+        self.title_font2 = py.font.Font(FONT_TITLE, 55)
+        self.title_font3 = py.font.Font(FONT_TEXT, 55) 
+        self.label_font = py.font.Font(FONT_TEXT, 40)
+        self.home_button_font = py.font.Font(FONT_TEXT, 40) 
 
         # notification
-        self.notification_font = py.font.Font(None, 22)
-        self.top_notification_font = py.font.Font(None, 26) 
+        self.notification_font = py.font.Font(FONT_TEXT, 22)
+        self.top_notification_font = py.font.Font(FONT_TEXT, 24) 
         self.notification_text = None
         self.notification_start_time = 0
         self.notification_duration = 1500
@@ -220,7 +222,6 @@ class Game:
         self.tblNotify_surf = py.image.load(join('images', 'setting', 'notify.png')).convert_alpha()
 
     def save_keybindings(self):
-        """Lưu keybindings hiện tại vào file JSON."""
         try:
             with open('keybindings.json', 'w') as f:
                 # Lưu key code dưới dạng số nguyên
@@ -311,7 +312,6 @@ class Game:
         return current_time - last_used >= required_cooldown_ms
     
     def get_skill_cooldown_remaining(self, skill_id):
-        """Lấy thời gian cooldown còn lại (giây), dựa trên cooldown động."""
         if skill_id not in self.skill_last_used:
             return 0
         current_time = py.time.get_ticks()
@@ -697,7 +697,7 @@ class Game:
     def create_home_menu(self):
         self.home_buttons.clear()
         button_texts = ["Start Game", "Setting", "Introduction", "Exit"]
-        start_y = WINDOW_HEIGHT * 0.38
+        start_y = WINDOW_HEIGHT * 0.42
 
         for i, text in enumerate(button_texts):
             button_rect = self.btnXLarge_surf.get_rect(
@@ -722,16 +722,39 @@ class Game:
             initial_alpha=0,
             final_alpha=255
         )
-        title_surf = self.title_font.render("Chibi Survival", True, 'orange')
-        title_surf.set_alpha(title_alpha)
-        title_rect = title_surf.get_rect(center=(title_target_center_x, title_anim_y))
-        self.display_surface.blit(title_surf, title_rect)
+        
+        title_lines = [
+            ("CHIBI", self.title_font1, 'yellow'),
+            ("SURVIVAL", self.title_font2, 'yellow')
+        ]
+        
+        rendered_line_surfaces = []
+        total_title_height = 0
+        spacing_between_lines = 5
+
+        # Render trước các dòng để lấy kích thước
+        for i, (text, font_obj, color) in enumerate(title_lines):
+            surf = font_obj.render(text, True, color)
+            rendered_line_surfaces.append(surf)
+            total_title_height += surf.get_height()
+            if i < len(title_lines) - 1: # Thêm khoảng cách cho các dòng không phải dòng cuối
+                total_title_height += spacing_between_lines
+        
+        # Tính toán vị trí Y bắt đầu để vẽ dòng đầu tiên,
+        current_render_y = title_anim_y - total_title_height / 2
+
+        # Vẽ từng dòng
+        for i, line_surf in enumerate(rendered_line_surfaces):
+            line_surf.set_alpha(title_alpha)
+            line_rect = line_surf.get_rect(centerx=title_target_center_x, top=current_render_y)
+            self.display_surface.blit(line_surf, line_rect)
+            current_render_y += line_surf.get_height() + spacing_between_lines
 
         # Vẽ các nút với hiệu ứng float-in và trễ
         for i, button in enumerate(self.home_buttons):
             button_anim_actual_start_time = self.menu_anim_start_time  + (i + 1) * self.menu_anim_delay 
             
-            button_target_center_y = button['rect'].centery # Lấy Y mục tiêu từ rect đã tạo
+            button_target_center_y = button['rect'].centery
             button_target_center_x = button['rect'].centerx
 
             btn_anim_y, btn_alpha = self.float_in_animation(
@@ -767,15 +790,15 @@ class Game:
         self.display_surface.blit(self.btnBack_surf, self.intro_back_button_rect)
 
         # Tiêu đề
-        title_surf = self.title_font.render("Game Introduction", True, 'orange')
+        title_surf = self.title_font3.render("GAME INTRODUCTION", True, 'orange')
         title_rect = title_surf.get_rect(center=(self.tblSetting_rect.centerx, self.tblSetting_rect.top + 180))
         self.display_surface.blit(title_surf, title_rect)
 
         # Nội dung
         line_spacing = 30
-        current_y = title_rect.bottom + 20
-        content_font = py.font.Font(None, 30)
-        label_font = py.font.Font(None, 35)
+        current_y = title_rect.bottom + 10
+        content_font = py.font.Font(FONT_TEXT, 30)
+        label_font = py.font.Font(FONT_TEXT, 35)
         text_color = 'white'
         highlight_color = 'lightgreen'
         section_color = 'lightblue'
@@ -853,7 +876,7 @@ class Game:
         self.display_surface.blit(self.btnBack_surf, self.btnBack_rect)
 
         # Vẽ Tiêu đề Music 
-        title_surf = self.title_font.render("Volume", True, 'white')
+        title_surf = self.title_font3.render("VOLUME", True, 'white')
         title_rect = title_surf.get_rect(center=(self.tblSetting_rect.centerx, self.tblSetting_rect.centery - 190)) # Vị trí trên cùng
         self.display_surface.blit(title_surf, title_rect)
 
@@ -898,12 +921,12 @@ class Game:
             py.draw.rect(self.display_surface, '#4CAF50', sfx_volume_fill_rect)
 
         # Vẽ Tiêu đề Control 
-        title_surf2 = self.title_font.render("Control", True, 'white')
+        title_surf2 = self.title_font3.render("CONTROL", True, 'white')
         title_rect2 = title_surf2.get_rect(center=(self.tblSetting_rect.centerx, self.tblSetting_rect.centery + 60))
         self.display_surface.blit(title_surf2, title_rect2)
 
         # Font và màu cho phím  
-        key_font = py.font.Font(None, 35)
+        key_font = py.font.Font(FONT_TEXT, 35)
         key_color = 'white'
         rebinding_color = 'yellow'
 
