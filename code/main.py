@@ -211,11 +211,6 @@ class Game:
         self.btnBig_surf = py.image.load(join('images', 'setting', 'L_button.png')).convert_alpha()
         self.btnSmall_surf = py.image.load(join('images', 'setting', 'S_button.png')).convert_alpha()
         self.btnXLarge_surf = py.image.load(join('images', 'setting', 'XL_button.png')).convert_alpha()
-
-        #skill - Chưa dùng đến
-        self.skill1_setting = py.image.load(join('images', 'infobar', 'skill1.jpeg')).convert_alpha()
-        self.skill2_setting = py.image.load(join('images', 'infobar', 'skill2.jpeg')).convert_alpha()
-        self.skill3_setting = py.image.load(join('images', 'infobar', 'skill3.jpeg')).convert_alpha()
         #info bar
         self.info_bar_surf = py.image.load(join('images', 'infobar', 'info_bar.png')).convert_alpha()
         #notify
@@ -233,7 +228,7 @@ class Game:
         try:
             with open('keybindings.json', 'r') as f:
                 loaded_bindings = json.load(f)
-                # Đảm bảo key là số nguyên (Pygame key constants)
+                # Đảm bảo key là số nguyên
                 self.keybindings = {k: int(v) for k, v in loaded_bindings.items()}
                 # Kiểm tra xem có đủ 3 skill không, nếu thiếu thì dùng default
                 if 'skill_1' not in self.keybindings: self.keybindings['skill_1'] = py.K_q
@@ -327,7 +322,7 @@ class Game:
             return 0
 
     def input(self):
-        # Chỉ xử lý input game nếu player và bow tồn tại (tức là game đã start)
+        # Chỉ xử lý input game nếu player và bow tồn tại (game đã start)
         if not hasattr(self, 'player') or not hasattr(self, 'bow') or self.player.is_dead:
             return
         keys = py.key.get_pressed()
@@ -436,7 +431,7 @@ class Game:
         for obj in map_data.get_layer_by_name('Entities'):
             if obj.name == 'Player':
                 player_pos = (obj.x, obj.y)
-            else: # Enemy spawn point
+            else:
                 self.spam_positions.append((obj.x, obj.y))
 
         # Tạo Player và Bow (SAU KHI đã có collision_sprites)
@@ -534,7 +529,7 @@ class Game:
             else:
                  pass
 
-    def float_in_animation(self, animation_start_time, current_time, animation_duration, target_y, start_y_offset=30, initial_alpha=0, final_alpha=255):
+    def float_in_animation(self, animation_start_time, current_time, animation_duration, target_y, start_y_offset=30, start_alpha=0, final_alpha=255):
         elapsed_time = current_time - animation_start_time
         progress = 0.0
         if animation_duration > 0:
@@ -543,7 +538,7 @@ class Game:
             progress = 1.0
 
         current_animated_y = target_y - start_y_offset * (1 - progress)
-        current_animated_alpha = initial_alpha + (final_alpha - initial_alpha) * progress
+        current_animated_alpha = start_alpha + (final_alpha - start_alpha) * progress
         return current_animated_y, int(current_animated_alpha)
 
     def draw_notification(self):
@@ -569,7 +564,7 @@ class Game:
                         animation_duration=self.notification_float_in_duration,
                         target_y=target_center_y,
                         start_y_offset= 50,
-                        initial_alpha=0,
+                        start_alpha=0,
                         final_alpha=255
                     )
                     
@@ -589,7 +584,7 @@ class Game:
                         animation_duration=self.notification_float_in_duration,
                         target_y=target_center_y,
                         start_y_offset= -30,
-                        initial_alpha=0,
+                        start_alpha=0,
                         final_alpha=255
                     )
                     notification_surf.set_alpha(animated_alpha)
@@ -620,17 +615,16 @@ class Game:
 
         # Sound
         if old_state == 'none' and new_state != 'none': # Rời khỏi màn hình chơi game để vào menu/pause
-            # Tạm dừng tất cả các kênh âm thanh đang hoạt động (bao gồm cả self.music)
             py.mixer.pause() 
         elif old_state == 'home' and new_state != 'home': # Rời khỏi màn hình home
             if new_state == 'none': # Ví dụ: Home -> Start Game
                 self.sound_wait.stop()
         if new_state == 'none': # Vào màn hình chơi game
-            if old_state != 'none': # Đảm bảo thực sự chuyển vào 'none' từ một menu/trạng thái tạm dừng
+            if old_state != 'none': # Đảm bảo chuyển vào 'none' từ một menu/trạng thái tạm dừng
                 self.sound_wait.stop()
                 py.mixer.unpause() 
-        elif new_state == 'home': # Vào màn hình home
-            if self.music.get_num_channels() > 0: # Dừng nhạc game nếu đang phát/tạm dừng
+        elif new_state == 'home':
+            if self.music.get_num_channels() > 0:
                 self.music.stop()
 
             is_sound_wait_playing = self.sound_wait.get_num_channels() > 0
@@ -638,8 +632,8 @@ class Game:
             if old_state in ['settings', 'introduction'] and is_sound_wait_playing:
                 pass
             else:
-                # Đối với các trường hợp khác (từ game over về home, từ pause về home, hoặc nhạc home chưa phát)
-                # dừng nhạc home (nếu có) để tránh phát chồng, rồi phát lại.
+                # các trường hợp khác (từ game over về home, từ pause về home, hoặc nhạc home chưa phát)
+                # dừng nhạc home (nếu có), rồi phát lại.
                 self.sound_wait.stop() 
                 self.sound_wait.play(loops=-1)
 
@@ -650,7 +644,7 @@ class Game:
         current_ticks = py.time.get_ticks()
 
         if is_paused_now and not was_paused_before: # Chuyển từ chạy ('none') sang pause/settings/home
-            # Phần xử lý logic pause
+            # Phần xử lý pause
             if self.enemy_timer_active:
                 py.time.set_timer(self.enemy_event, 0)
                 self.enemy_timer_active = False
@@ -667,7 +661,7 @@ class Game:
                         self.paused_skill_display_cooldowns[skill_id] = remaining_seconds
 
         elif not is_paused_now and was_paused_before: # Chuyển từ pause/settings/home sang chạy ('none')
-            # Phần xử lý logic unpause (điều chỉnh skill_last_used)
+            # Phần xử lý unpause (điều chỉnh skill_last_used)
             if self.pause_start_time > 0: # Đảm bảo đã có thời điểm bắt đầu pause hợp lệ
                 paused_duration = current_ticks - self.pause_start_time
                 if hasattr(self, 'player'):
@@ -688,7 +682,7 @@ class Game:
 
         if new_state == 'paused' and not self.menu_rects:
             self.create_pause_menu()
-        elif new_state == 'home' and old_state != 'home': # Chỉ reset anim time khi thực sự chuyển đến home
+        elif new_state == 'home' and old_state != 'home': # Chỉ reset anim time khi chuyển đến home
             self.menu_anim_start_time  = py.time.get_ticks()
             self.create_pause_menu()
         elif new_state == 'home' and not self.home_buttons:
@@ -719,7 +713,7 @@ class Game:
             animation_duration=self.menu_anim_duration ,
             target_y=title_target_center_y,
             start_y_offset=-50, # Float từ dưới lên
-            initial_alpha=0,
+            start_alpha=0,
             final_alpha=255
         )
         
@@ -763,7 +757,7 @@ class Game:
                 animation_duration=self.menu_anim_duration ,
                 target_y=button_target_center_y,
                 start_y_offset=-50, # Float từ dưới lên
-                initial_alpha=0,
+                start_alpha=0,
                 final_alpha=255
             )
 
@@ -1014,8 +1008,6 @@ class Game:
             self.high_score = 0
 
     def get_survival_time(self):
-            # if not self.game_over:
-            #     self.survival_time = (py.time.get_ticks() - self.start_time) / 1000 # Thay đổi ở đây
         return self.survival_time
 
     def create_gameover_menu(self):
@@ -1032,7 +1024,6 @@ class Game:
             self.create_gameover_menu()
         current_time = py.time.get_ticks()
 
-        # Start Y offsets
         float_from_bottom_offset = 80 
         info_delay_per_line = 100
 
@@ -1055,7 +1046,7 @@ class Game:
             animation_duration=self.menu_anim_duration,
             target_y=table_target_centery,
             start_y_offset=-float_from_bottom_offset,
-            initial_alpha=0,
+            start_alpha=0,
             final_alpha=255
         )
         temp_tbl_surf = self.tblFinish_surf.copy()
@@ -1071,7 +1062,7 @@ class Game:
             animation_duration=self.menu_anim_duration,
             target_y=game_over_target_y,
             start_y_offset=-float_from_bottom_offset,
-            initial_alpha=0,
+            start_alpha=0,
             final_alpha=255
         )
         game_over_text = self.font.render("GAME OVER", True, 'white')
@@ -1101,7 +1092,7 @@ class Game:
                 animation_duration=self.menu_anim_duration,
                 target_y=target_y_on_screen,
                 start_y_offset=-float_from_bottom_offset,
-                initial_alpha=0,
+                start_alpha=0,
                 final_alpha=255
             )
 
@@ -1128,7 +1119,7 @@ class Game:
                 animation_duration=self.menu_anim_duration,
                 target_y=new_record_target_y,
                 start_y_offset=-float_from_bottom_offset,
-                initial_alpha=0,
+                start_alpha=0,
                 final_alpha=255
             )
 
@@ -1147,7 +1138,7 @@ class Game:
                 animation_duration=self.menu_anim_duration,
                 target_y=button_target_center[1],
                 start_y_offset=-float_from_bottom_offset,
-                initial_alpha=0,
+                start_alpha=0,
                 final_alpha=255
             )
 
