@@ -128,7 +128,6 @@ class Player(py.sprite.Sprite):
                 if hasattr(self.game, 'notification_text'):
                     self.game.sound_levelUp.play()
                     self.game.notification_text = "Level Up"
-                    # self.game.notification_start_time = py.time.get_ticks()
                     self.game.notification_type = "level_up_original" 
             
             self.game.notification_start_time = py.time.get_ticks()
@@ -139,7 +138,6 @@ class Player(py.sprite.Sprite):
             self.max_exp = int(100 * (1.2)**(self.level - 1))
             self.update_game_difficulty()
             self.update_max_health()
-            # Có thể gọi update_exp lần nữa nếu có exp thừa
             if self.current_exp > 0:
                 self.update_exp(0) # Để kiểm tra level up lần nữa nếu exp thừa đủ và chưa max level
 

@@ -145,7 +145,6 @@ class Game:
         self.imgBg = py.image.load(join('images', 'bg.png'))
         self.bullet_surf = py.image.load(join('images', 'weapon', 'arrow.png')).convert_alpha()    
         
-        # self.skill_surf = py.image.load(join('images', 'skill', '7.png')).convert_alpha()
         self.skill_frames = []
         for folder_path, _, file_names in walk(join('images', 'skill')):
             if file_names:
@@ -163,12 +162,12 @@ class Game:
                     full_path = join(folder_path, file_name)
                     surf = py.image.load(full_path).convert_alpha()
                     self.enemy_frames[folder].append(surf)
-        #pause
+        # pause
         self.btnPause_surf = py.image.load(join('images', 'setting', 'pause.png')).convert_alpha()
         self.btnPause_rect = self.btnPause_surf.get_rect(topleft=(5, 5))
         self.tblPause_surf = py.image.load(join('images', 'setting', 'tbl_pause.png')).convert_alpha()
         self.tblPause_rect = self.tblPause_surf.get_rect(center=(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2))
-        # Thêm tải ảnh cho Settings  
+        # Settings  
         self.tblSetting_surf = py.image.load(join('images', 'setting', 'tbl_setting.png')).convert_alpha()
         self.btnBack_surf = py.image.load(join('images', 'setting', 'back.png')).convert_alpha()
         self.tblSetting_rect = self.tblSetting_surf.get_rect(center=(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2))
@@ -192,7 +191,7 @@ class Game:
             left=self.music_volume_bar_rect.right - 55
         )
 
-        #   SFX Volume Rects  
+        # SFX Volume Rects  
         self.sfx_volume_bar_rect = self.volume_bar_surf.get_rect(
             center=(self.tblSetting_rect.centerx + 60, self.tblSetting_rect.centery - 35)
         )
@@ -237,10 +236,8 @@ class Game:
 
         except FileNotFoundError:
             print("Không tìm thấy file keybindings.json. Sử dụng giá trị mặc định.")
-            # Nếu file không tồn tại, keybindings đã có giá trị mặc định rồi
         except (json.JSONDecodeError, ValueError, TypeError) as e:
             print(f"Lỗi khi đọc file keybindings.json: {e}. Sử dụng giá trị mặc định.")
-            # Reset về mặc định nếu file bị lỗi
             self.keybindings = {
                 'skill_1': py.K_q,
                 'skill_2': py.K_e,
@@ -295,7 +292,7 @@ class Game:
 
     def is_skill_ready(self, skill_id):
         if skill_id not in self.skill_last_used: # Kiểm tra skill tồn tại
-             return False
+            return False
         if skill_id == 'skill_2' and self.player.level < 2:
             return False # Skill 2 bị khóa dưới cấp 2
         if skill_id == 'skill_3' and self.player.level < 4:
@@ -435,7 +432,7 @@ class Game:
                 self.spam_positions.append((obj.x, obj.y))
 
         # Tạo Player và Bow (SAU KHI đã có collision_sprites)
-        self.bow = Bow(None, self.all_sprites) # Tạo bow trước
+        self.bow = Bow(None, self.all_sprites)
         self.player = Player(player_pos, self.all_sprites, self.collision_sprites, self.bow, self)
         self.bow.set_player(self.player) # Gán player cho bow
 
@@ -451,7 +448,7 @@ class Game:
             self.skill_last_used[skill_id] = current_time # Reset thời gian sử dụng
 
         # Khởi động lại timer enemy và nhạc
-        self.enemy_create = int(1500 * (0.95)**(self.player.level - 1)) # Tính lại enemy_create dựa trên level (nếu có reset giữa game)
+        self.enemy_create = int(1500 * (0.95)**(self.player.level - 1)) # Tính lại enemy_create dựa trên level
         py.time.set_timer(self.enemy_event, self.enemy_create)
         self.enemy_timer_active = True
         
@@ -668,7 +665,7 @@ class Game:
                     for skill_id in self.skill_last_used:
                         if self.skill_last_used[skill_id] < self.pause_start_time:
                             self.skill_last_used[skill_id] += paused_duration
-                self.pause_start_time = 0 # Reset lại thời điểm bắt đầu pause
+                self.pause_start_time = 0
 
             # Xóa giá trị cooldown hiển thị đã lưu
             self.paused_skill_display_cooldowns.clear()
@@ -708,7 +705,7 @@ class Game:
         title_target_center_x = 250
         title_target_center_y = WINDOW_HEIGHT * 0.18
         title_anim_y, title_alpha = self.float_in_animation(
-            animation_start_time=self.menu_anim_start_time , # Tiêu đề bắt đầu ngay
+            animation_start_time=self.menu_anim_start_time ,
             current_time=current_time,
             animation_duration=self.menu_anim_duration ,
             target_y=title_target_center_y,
@@ -845,7 +842,7 @@ class Game:
             current_y += line_spacing
 
     def create_pause_menu(self):
-        self.menu_rects.clear() # Xóa cũ
+        self.menu_rects.clear()
         y_offset = -100
         self.btnContinue_rect = None
         for option in self.menu_options:
@@ -1336,7 +1333,7 @@ class Game:
                     self.bullet_collision()
                     self.skill_collision()
                 elif hasattr(self, 'player') and self.player.is_dead:
-                    self.all_sprites.update(dt) # Chỉ update animation chết
+                    self.all_sprites.update(dt)
 
             # Draw
             self.display_surface.fill("black")

@@ -201,15 +201,15 @@ class Skill_2(py.sprite.Sprite):
         self.player.health += heal_amount
         self.player.health = min(self.player.health, max_health)
 
-        # Cập nhật thanh máu phụ
+        # Cập nhật thanh máu
         self.player.health_bar.delayed_health = self.player.health
-        self.player.info_bar.delayed_health = self.player.health # Cập nhật cả info bar
+        self.player.info_bar.delayed_health = self.player.health
 
-        # Cập nhật lại hiển thị thanh máu (nếu cần)
+        # Cập nhật lại hiển thị thanh máu
         if hasattr(self.player.health_bar, 'update_health'):
              self.player.health_bar.update_health()
         if hasattr(self.player.info_bar, 'update_health'):
-             self.player.info_bar.update_health() # Cập nhật cả info bar
+             self.player.info_bar.update_health()
 
 class Skill_3(py.sprite.Sprite):
     def __init__(self, frames, pos, direction, groups, player):
